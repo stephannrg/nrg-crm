@@ -11,6 +11,15 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 // NRG interne domeinen — nooit als klant behandelen
 const NRG_DOMEINEN = ['nrgsales.nl', 'nrggroup.nl', 'nrg.nl'];
 
+function isNrgAdres(addr) {
+  return NRG_DOMEINEN.some(d => addr.toLowerCase().includes('@' + d));
+}
+
+function extractAdressen(adresString) {
+  if (!adresString) return [];
+  return adresString.split(',').map(a => a.trim()).filter(Boolean);
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
@@ -26,8 +35,30 @@ exports.handler = async (event) => {
       .order('created_at', { ascending: true });
 
     const admin = profiles?.[0];
-    const senderProfile = profiles?.find(p => p.email?.toLowerCase() === from?.toLowerCase());
-    const assigned_to = senderProfile ? senderProfile.id : admin?.id || null;
+
+    // Koppel nrggroup.nl adressen aan bekende gebruikers
+    const alleAdressen = [
+      ...extractAdressen(from),
+      ...extractAdressen(to),
+      ...extractAdressen(cc)
+    ];
+
+    // Zoek de NRG medewerker in de thread — basis voor assigned_to
+    const nrgAdressen = alleAdressen.filter(isNrgAdres);
+    let assigned_to = admin?.id || null;
+    for (const addr of nrgAdressen) {
+      const profiel = profiles?.find(p => p.email?.toLowerCase() === addr.toLowerCase());
+      if (profiel) { assigned_to = profiel.id; break; }
+    }
+
+    // Externe adressen — dit zijn de klanten
+    const externeAdressen = alleAdressen.filter(addr => !isNrgAdres(addr))
+    const externeGeadresseerden = externeAdressen.join(', ')
+    const externeDomeinen = [...new Set(
+      externeAdressen
+        .map(addr => addr.split('@')[1]?.toLowerCase())
+        .filter(Boolean)
+    )].join(', ')
 
     // Haal bedrijven en contacten op
     const { data: companies } = await supabase
@@ -58,18 +89,15 @@ exports.handler = async (event) => {
       }
     }
 
-    const emailInhoud = (rawEmail?.slice(0, 3000) || '') + attachmentSummary;
+    // Volledige mail meegeven — geen harde limiet op 3000 tekens meer
+    const emailInhoud = (rawEmail?.slice(0, 8000) || '') + attachmentSummary;
 
-    // Filter alle interne NRG adressen — alleen externe adressen zijn klanten
-    const alleAdressen = [to, cc]
-      .filter(Boolean)
-      .flatMap(addr => addr.split(',').map(a => a.trim()))
-      .filter(addr => addr && !NRG_DOMEINEN.some(d => addr.toLowerCase().includes(d)))
-
-    const externeGeadresseerden = alleAdressen.join(', ')
-    const externeDomeinen = alleAdressen
-      .map(addr => addr.split('@')[1]?.toLowerCase())
-      .filter(Boolean)
+    // NRG medewerkers in de thread (voor context)
+    const nrgMedewerkers = nrgAdressen
+      .map(addr => {
+        const p = profiles?.find(p => p.email?.toLowerCase() === addr.toLowerCase());
+        return p ? `${p.full_name} (${addr})` : addr;
+      })
       .join(', ')
 
     const response = await anthropic.messages.create({
@@ -77,21 +105,23 @@ exports.handler = async (event) => {
       max_tokens: 1500,
       messages: [{
         role: 'user',
-        content: `Analyseer deze zakelijke e-mail voor een CRM systeem.
+        content: `Analyseer deze zakelijke e-mail voor een CRM systeem. Lees de VOLLEDIGE mail inclusief de hele thread.
 
-CONTEXT:
-- De AFZENDER en alle adressen eindigend op nrggroup.nl, nrgsales.nl of nrg.nl zijn NRG medewerkers — gebruik deze NOOIT voor bedrijfsmatching en stel NOOIT voor om NRG Group als nieuw bedrijf aan te maken.
-- De KLANTEN zijn uitsluitend de externe geadresseerden: ${externeGeadresseerden || '(geen externe geadresseerden)'}
-- Externe domeinen van klanten: ${externeDomeinen || '(geen)'}
-- Match de externe domeinen met de website velden van bekende bedrijven. Bijv. domein "electure.nl" matcht met een bedrijf met website "electure.nl" of "www.electure.nl".
-- Als er geen externe geadresseerden zijn, gebruik dan suggestie_actie "geen_actie".
+REGELS:
+- NRG medewerkers in deze thread: ${nrgMedewerkers || '(onbekend)'}
+- Adressen op nrggroup.nl, nrgsales.nl of nrg.nl zijn ALTIJD NRG medewerkers — nooit als klant behandelen, nooit als nieuw bedrijf voorstellen.
+- De KLANTEN zijn uitsluitend de externe geadresseerden: ${externeGeadresseerden || '(geen externe geadresseerden gevonden)'}
+- Externe domeinen: ${externeDomeinen || '(geen)'}
+- Zoek ook in de INHOUD van de mail naar bedrijfsnamen en personen die als klant of contact relevant kunnen zijn.
+- Match externe domeinen met de website velden van bekende bedrijven (bijv. "electure.nl" → bedrijf met website "electure.nl").
+- Als er geen externe geadresseerden zijn maar wel bedrijven/personen worden GENOEMD in de mail body, gebruik die dan voor matching.
 
 Geef een JSON response met:
-- samenvatting: zakelijke samenvatting max 80 woorden. Vermeld expliciet aan welke externe partij de mail gestuurd is.
-- geadresseerden: externe geadresseerden als string (of null als er geen zijn)
+- samenvatting: heldere zakelijke samenvatting max 100 woorden. Vermeld wie (externe partij/persoon) erbij betrokken is en wat de kern van de mail is.
+- geadresseerden: externe geadresseerden en/of genoemde externe personen als string (of null)
 - bijlagen_samenvatting: beschrijving van relevante bijlagen (of null)
 - match_type: "bedrijf", "contactpersoon", "nieuw_contact", "nieuw_bedrijf", of "onbekend"
-- match_id: uuid van het gevonden bedrijf of contact (of null)
+- match_id: uuid van het gevonden bedrijf of contact uit de bekende lijsten (of null)
 - match_naam: naam van het gevonden bedrijf of contact (of null)
 - match_zekerheid: "hoog", "middel", of "laag"
 - suggestie_actie: "koppel_aan_klant", "maak_nieuwe_klant", of "geen_actie"
@@ -101,9 +131,13 @@ Bekende bedrijven (met website): ${JSON.stringify(companies?.slice(0, 50))}
 Bekende contacten: ${JSON.stringify(contacts?.slice(0, 50))}
 
 Van: ${from}
-Externe geadresseerden: ${externeGeadresseerden || '(geen)'}
+Aan: ${to || ''}
+CC: ${cc || ''}
+Externe partijen: ${externeGeadresseerden || '(zie mailinhoud)'}
 Onderwerp: ${subject}
-Inhoud: ${emailInhoud}
+
+Volledige mailinhoud:
+${emailInhoud}
 
 Geef ALLEEN een JSON object terug, geen andere tekst.`
       }]
@@ -116,7 +150,7 @@ Geef ALLEEN een JSON object terug, geen andere tekst.`
       .from('email_inbox')
       .insert({
         from_email: from,
-        to_email: externeGeadresseerden || null,
+        to_email: externeGeadresseerden || to || null,
         cc_email: cc || null,
         subject: subject,
         received_at: receivedAt,

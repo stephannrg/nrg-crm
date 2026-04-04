@@ -326,10 +326,10 @@
       })
     })
 
-    // Negeren
+    // Negeren = verwijderen uit database
     body.querySelectorAll('[data-action="negeren"]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        await supabase.from('email_inbox').update({ verwerkt: true }).eq('id', btn.dataset.id)
+        await supabase.from('email_inbox').delete().eq('id', btn.dataset.id)
         await load()
       })
     })
