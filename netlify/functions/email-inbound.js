@@ -22,23 +22,14 @@ exports.handler = async (event) => {
       .select('id, full_name, email, role')
       .order('created_at', { ascending: true });
 
-    // Bepaal admin = eerste aangemaakte gebruiker
     const admin = profiles?.[0];
-
-    // Zoek of de afzender een bekende gebruiker is
-    const senderProfile = profiles?.find(p =>
-      p.email?.toLowerCase() === from?.toLowerCase()
-    );
-
-    // Bepaal voor wie deze mail is
-    // - Afzender is een bekende gebruiker → stuur naar die gebruiker zelf
-    // - Afzender is onbekend → alleen naar admin
+    const senderProfile = profiles?.find(p => p.email?.toLowerCase() === from?.toLowerCase());
     const assigned_to = senderProfile ? senderProfile.id : admin?.id || null;
 
     // Haal bedrijven en contacten op
     const { data: companies } = await supabase
       .from('companies')
-      .select('id, name');
+      .select('id, name, website');
 
     const { data: contacts } = await supabase
       .from('contacts')
@@ -55,7 +46,7 @@ exports.handler = async (event) => {
           a.content_type.includes('spreadsheet') ||
           a.content_type.includes('text')
         ))
-        .slice(0, 3); // max 3 bijlagen
+        .slice(0, 3);
 
       if (relevantAttachments.length > 0) {
         attachmentSummary = '\n\nBijlagen:\n' + relevantAttachments.map(a =>
@@ -66,27 +57,37 @@ exports.handler = async (event) => {
 
     const emailInhoud = (rawEmail?.slice(0, 3000) || '') + attachmentSummary;
 
-    // Claude analyseert de mail
+    // Extraheer domein uit to-adres voor betere matching
+    const toDomain = to ? to.split('@')[1]?.toLowerCase() : null;
+    const fromDomain = from ? from.split('@')[1]?.toLowerCase() : null;
+
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1500,
       messages: [{
         role: 'user',
-        content: `Analyseer deze zakelijke e-mail voor een CRM systeem en geef een JSON response met de volgende velden:
+        content: `Analyseer deze zakelijke e-mail voor een CRM systeem en geef een JSON response.
 
-- samenvatting: heldere, zakelijke samenvatting van max 80 woorden. Focus op wat er gevraagd of gemeld wordt.
-- bijlagen_samenvatting: korte beschrijving van relevante bijlagen (of null als geen bijlagen)
+BELANGRIJKE INSTRUCTIES:
+- Kijk ook naar het TO adres (aan wie gestuurd) om het bedrijf te herkennen. Het domein van het TO adres kan overeenkomen met een bedrijfswebsite.
+- Kijk naar het FROM domein (${fromDomain}) en het TO domein (${toDomain}) om bedrijven te matchen.
+- Als het TO domein overeenkomt met de website van een bekend bedrijf, gebruik dat als match.
+
+Geef een JSON response met:
+- samenvatting: heldere zakelijke samenvatting max 80 woorden
+- bijlagen_samenvatting: korte beschrijving van relevante bijlagen (of null)
 - match_type: "bedrijf", "contactpersoon", "nieuw_contact", "nieuw_bedrijf", of "onbekend"
-- match_id: uuid van het gevonden bedrijf of contact uit onderstaande lijsten (of null)
+- match_id: uuid van het gevonden bedrijf of contact (of null)
 - match_naam: naam van het gevonden bedrijf of contact (of null)
 - match_zekerheid: "hoog", "middel", of "laag"
-- suggestie_actie: één van "koppel_aan_klant", "maak_nieuwe_klant", "geen_actie"
-- suggestie_toelichting: korte uitleg waarom deze actie aanbevolen wordt (max 40 woorden)
+- suggestie_actie: "koppel_aan_klant", "maak_nieuwe_klant", of "geen_actie"
+- suggestie_toelichting: korte uitleg max 40 woorden
 
-Bekende bedrijven: ${JSON.stringify(companies?.slice(0, 50))}
+Bekende bedrijven (inclusief website): ${JSON.stringify(companies?.slice(0, 50))}
 Bekende contacten: ${JSON.stringify(contacts?.slice(0, 50))}
 
-E-mail van: ${from}
+E-mail VAN: ${from} (domein: ${fromDomain})
+E-mail AAN: ${to} (domein: ${toDomain})
 Onderwerp: ${subject}
 Inhoud: ${emailInhoud}
 
@@ -97,11 +98,11 @@ Geef ALLEEN een JSON object terug, geen andere tekst.`
     const analysisText = response.content[0].text;
     const analysis = JSON.parse(analysisText.replace(/```json|```/g, '').trim());
 
-    // Sla op in Supabase
     const { error } = await supabase
       .from('email_inbox')
       .insert({
         from_email: from,
+        to_email: to,
         subject: subject,
         received_at: receivedAt,
         raw_email: rawEmail?.slice(0, 10000),

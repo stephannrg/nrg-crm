@@ -21,21 +21,32 @@
     .inbox-item:last-child { border-bottom: none; }
     .inbox-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
     .inbox-from { font-weight: 600; font-size: 14px; color: var(--text); }
+    .inbox-to { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
     .inbox-subject { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
     .inbox-date { font-size: 12px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
     .inbox-summary { font-size: 13px; color: var(--text); margin-top: 10px; line-height: 1.6; padding: 10px 12px; background: var(--bg-muted); border-radius: 8px; }
     .inbox-attachments { font-size: 12px; color: var(--text-muted); margin-top: 6px; padding: 6px 12px; background: var(--bg-muted); border-radius: 6px; border-left: 3px solid var(--border); }
     .suggestie-box { margin-top: 12px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
     .suggestie-header { padding: 8px 14px; background: var(--bg-muted); font-size: 12px; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
-    .suggestie-body { padding: 12px 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .suggestie-body { padding: 12px 14px; }
+    .suggestie-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
     .suggestie-tekst { flex: 1; font-size: 13px; color: var(--text); min-width: 180px; }
-    .match-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 3px 10px; border-radius: 20px; font-weight: 500; margin-bottom: 4px; }
+    .match-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 3px 10px; border-radius: 20px; font-weight: 500; }
     .match-hoog { background: #d1fae5; color: #065f46; }
     .match-middel { background: #fef3c7; color: #92400e; }
     .match-laag { background: #fee2e2; color: #991b1b; }
     .match-onbekend { background: var(--bg-muted); color: var(--text-muted); }
     .badge-type { font-size: 11px; padding: 1px 7px; border-radius: 8px; background: var(--teal-l); color: var(--teal-d); font-weight: 500; }
-    .inbox-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .inbox-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .notitie-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .notitie-row select { flex: 1; min-width: 160px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; background: white; color: var(--text); }
+    .nieuw-bedrijf-form { margin-top: 10px; padding: 12px; background: var(--bg-muted); border-radius: 8px; border: 1px dashed var(--border); display: none; }
+    .nieuw-bedrijf-form.open { display: block; }
+    .nieuw-bedrijf-form .form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+    .nieuw-bedrijf-form input { flex: 1; min-width: 140px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; background: white; color: var(--text); }
+    .nieuw-bedrijf-form label { font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 3px; }
+    .nieuw-bedrijf-form .form-field { flex: 1; min-width: 140px; }
+    .nieuw-bedrijf-form .form-actions { display: flex; gap: 8px; margin-top: 4px; }
     .inbox-processed { opacity: 0.4; }
     .filter-bar { display: flex; gap: 8px; margin-bottom: 16px; }
     .verwerkt-label { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
@@ -70,7 +81,7 @@
     </div>
   `
 
-  let emails = [], filter = 'nieuw'
+  let emails = [], companies = [], filter = 'nieuw'
 
   async function load() {
     let query = supabase
@@ -81,9 +92,30 @@
 
     if (!isAdmin) query = query.eq('assigned_to', uid)
 
-    const { data } = await query
-    emails = data || []
+    const [{ data: emailData }, { data: companyData }] = await Promise.all([
+      query,
+      supabase.from('companies').select('id, name').order('name')
+    ])
+
+    emails = emailData || []
+    companies = companyData || []
     render()
+  }
+
+  function guessNaam(from) {
+    // Probeer naam te extraheren uit "Naam <email>" formaat
+    const match = from?.match(/^([^<]+)</)
+    if (match) return match[1].trim()
+    // Anders gebruik deel voor @
+    return from?.split('@')[0]?.replace(/[._]/g, ' ') || ''
+  }
+
+  function guessDomain(from) {
+    const domain = from?.split('@')[1]
+    if (!domain) return ''
+    // Filter generieke domeinen
+    const generiek = ['gmail.com','hotmail.com','outlook.com','yahoo.com','icloud.com','live.com','me.com']
+    return generiek.includes(domain.toLowerCase()) ? '' : 'https://' + domain
   }
 
   function render() {
@@ -97,28 +129,37 @@
       return
     }
 
+    const companyOptions = companies.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')
+
     body.innerHTML = filtered.map(e => {
       const z = e.match_zekerheid || 'onbekend'
       const zl = { hoog: 'Hoge zekerheid', middel: 'Gemiddelde zekerheid', laag: 'Lage zekerheid', onbekend: 'Onbekend' }[z] || z
       const tl = { bedrijf: 'Bedrijf', contactpersoon: 'Contact', nieuw_contact: 'Nieuw contact', nieuw_bedrijf: 'Nieuw bedrijf', onbekend: 'Onbekend' }[e.match_type] || '?'
 
-      const suggestieKnop = e.suggestie_actie === 'koppel_aan_klant' && e.match_id
+      const vooringevuld = {
+        naam: e.match_naam || guessNaam(e.from_email),
+        email: e.from_email || '',
+        website: guessDomain(e.from_email)
+      }
+
+      const koppelKnop = e.suggestie_actie === 'koppel_aan_klant' && e.match_id
         ? `<button class="btn btn-primary btn-sm" data-action="koppelen" data-id="${e.id}" data-match-id="${e.match_id}" data-match-type="${e.match_type}">✓ Koppelen aan ${esc(e.match_naam || 'klant')}</button>`
-        : e.suggestie_actie === 'maak_nieuwe_klant'
-          ? `<button class="btn btn-secondary btn-sm" data-action="nieuw-bedrijf" data-id="${e.id}">+ Nieuwe klant aanmaken</button>`
-          : ''
+        : ''
 
       return `
         <div class="inbox-item ${e.verwerkt ? 'inbox-processed' : ''}" data-id="${e.id}">
           <div class="inbox-header">
             <div>
               <div class="inbox-from">${esc(e.from_email || '—')}</div>
+              ${e.to_email ? `<div class="inbox-to">Aan: ${esc(e.to_email)}</div>` : ''}
               <div class="inbox-subject">${esc(e.subject || '(geen onderwerp)')}</div>
             </div>
             <div class="inbox-date">${e.received_at ? new Date(e.received_at).toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
           </div>
+
           ${e.samenvatting ? `<div class="inbox-summary">${esc(e.samenvatting)}</div>` : ''}
           ${e.bijlagen_samenvatting ? `<div class="inbox-attachments">📎 ${esc(e.bijlagen_samenvatting)}</div>` : ''}
+
           ${!e.verwerkt ? `
             <div class="suggestie-box">
               <div class="suggestie-header">
@@ -126,16 +167,56 @@
                 Claude suggestie
               </div>
               <div class="suggestie-body">
-                <div>
-                  ${e.match_naam
-                    ? `<div class="match-chip match-${z}">${esc(e.match_naam)} <span class="badge-type">${tl}</span></div>
-                       <div style="font-size:12px;color:var(--text-muted)">${zl}</div>`
-                    : `<div class="match-chip match-onbekend">Geen match gevonden</div>`}
+                <div class="suggestie-row">
+                  <div>
+                    ${e.match_naam
+                      ? `<div class="match-chip match-${z}">${esc(e.match_naam)} <span class="badge-type">${tl}</span></div>
+                         <div style="font-size:12px;color:var(--text-muted);margin-top:3px">${zl}</div>`
+                      : `<div class="match-chip match-onbekend">Geen match gevonden</div>`}
+                  </div>
+                  <div class="suggestie-tekst">${e.suggestie_toelichting ? esc(e.suggestie_toelichting) : ''}</div>
                 </div>
-                <div class="suggestie-tekst">${e.suggestie_toelichting ? esc(e.suggestie_toelichting) : ''}</div>
+
                 <div class="inbox-actions">
-                  ${suggestieKnop}
+                  ${koppelKnop}
                   <button class="btn btn-secondary btn-sm" data-action="negeren" data-id="${e.id}">Negeren</button>
+                </div>
+
+                <div class="notitie-row">
+                  <select data-select="${e.id}">
+                    <option value="">— Kies bedrijf —</option>
+                    ${e.match_id && e.match_type === 'bedrijf' ? `<option value="${e.match_id}" selected>${esc(e.match_naam || '')}</option>` : ''}
+                    ${companyOptions}
+                  </select>
+                  <button class="btn btn-secondary btn-sm" data-action="notitie" data-id="${e.id}">+ Notitie toevoegen</button>
+                  <button class="btn btn-ghost btn-sm" data-action="toggle-nieuw" data-id="${e.id}">+ Nieuw bedrijf</button>
+                </div>
+
+                <div class="nieuw-bedrijf-form" id="nieuw-form-${e.id}">
+                  <div class="form-row">
+                    <div class="form-field">
+                      <label>Bedrijfsnaam *</label>
+                      <input type="text" id="nieuw-naam-${e.id}" value="${esc(vooringevuld.naam)}" placeholder="Bedrijfsnaam"/>
+                    </div>
+                    <div class="form-field">
+                      <label>E-mailadres</label>
+                      <input type="email" id="nieuw-email-${e.id}" value="${esc(vooringevuld.email)}" placeholder="info@bedrijf.nl"/>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-field">
+                      <label>Website</label>
+                      <input type="text" id="nieuw-website-${e.id}" value="${esc(vooringevuld.website)}" placeholder="https://bedrijf.nl"/>
+                    </div>
+                    <div class="form-field">
+                      <label>Stad</label>
+                      <input type="text" id="nieuw-stad-${e.id}" value="" placeholder="Amsterdam"/>
+                    </div>
+                  </div>
+                  <div class="form-actions">
+                    <button class="btn btn-primary btn-sm" data-action="maak-bedrijf" data-id="${e.id}">Bedrijf aanmaken & notitie toevoegen</button>
+                    <button class="btn btn-ghost btn-sm" data-action="sluit-nieuw" data-id="${e.id}">Annuleren</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -143,6 +224,7 @@
         </div>`
     }).join('')
 
+    // Koppelen aan klant
     body.querySelectorAll('[data-action="koppelen"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id
@@ -151,26 +233,100 @@
         btn.disabled = true; btn.textContent = 'Bezig...'
         const { error } = await supabase.from('activities').insert({
           company_id: btn.dataset.matchType === 'bedrijf' ? btn.dataset.matchId : null,
-          type: 'mail',
-          subject: email.subject || '(geen onderwerp)',
+          type: 'mail', subject: email.subject || '(geen onderwerp)',
           body: email.samenvatting || email.raw_email?.slice(0, 500),
-          occurred_at: email.received_at,
-          logged_by: uid
+          occurred_at: email.received_at, logged_by: uid
         })
         if (!error) {
           await supabase.from('email_inbox').update({ verwerkt: true }).eq('id', id)
           await load()
-        } else {
-          btn.disabled = false; btn.textContent = '✓ Koppelen'
-          alert('Fout: ' + error.message)
-        }
+        } else { btn.disabled = false; btn.textContent = '✓ Koppelen'; alert('Fout: ' + error.message) }
       })
     })
 
-    body.querySelectorAll('[data-action="nieuw-bedrijf"]').forEach(btn => {
-      btn.addEventListener('click', () => { window.location.href = '/pages/klanten.html?nieuw=1' })
+    // Notitie toevoegen aan bestaand bedrijf
+    body.querySelectorAll('[data-action="notitie"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id
+        const email = emails.find(e => e.id === id)
+        const select = body.querySelector(`[data-select="${id}"]`)
+        const companyId = select?.value
+        if (!companyId) { alert('Kies eerst een bedrijf.'); return }
+        btn.disabled = true; btn.textContent = 'Bezig...'
+        const { error } = await supabase.from('activities').insert({
+          company_id: companyId, type: 'mail',
+          subject: email.subject || '(geen onderwerp)',
+          body: email.samenvatting || email.raw_email?.slice(0, 500),
+          occurred_at: email.received_at, logged_by: uid
+        })
+        if (!error) {
+          await supabase.from('email_inbox').update({ verwerkt: true }).eq('id', id)
+          await load()
+        } else { btn.disabled = false; btn.textContent = '+ Notitie toevoegen'; alert('Fout: ' + error.message) }
+      })
     })
 
+    // Toggle nieuw bedrijf formulier
+    body.querySelectorAll('[data-action="toggle-nieuw"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById(`nieuw-form-${btn.dataset.id}`)?.classList.toggle('open')
+      })
+    })
+
+    body.querySelectorAll('[data-action="sluit-nieuw"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById(`nieuw-form-${btn.dataset.id}`)?.classList.remove('open')
+      })
+    })
+
+    // Nieuw bedrijf aanmaken + notitie toevoegen
+    body.querySelectorAll('[data-action="maak-bedrijf"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id
+        const email = emails.find(e => e.id === id)
+        const naam = document.getElementById(`nieuw-naam-${id}`)?.value?.trim()
+        if (!naam) { alert('Vul een bedrijfsnaam in.'); return }
+        btn.disabled = true; btn.textContent = 'Bezig...'
+
+        // Bedrijf aanmaken
+        const { data: nieuwBedrijf, error: bedrijfError } = await supabase
+          .from('companies')
+          .insert({
+            name: naam,
+            website: document.getElementById(`nieuw-website-${id}`)?.value?.trim() || null,
+            stad: document.getElementById(`nieuw-stad-${id}`)?.value?.trim() || null,
+            status: 'suspect',
+            owner_id: uid
+          })
+          .select('id')
+          .single()
+
+        if (bedrijfError) { btn.disabled = false; btn.textContent = 'Bedrijf aanmaken & notitie toevoegen'; alert('Fout: ' + bedrijfError.message); return }
+
+        // Contact aanmaken met emailadres
+        const contactEmail = document.getElementById(`nieuw-email-${id}`)?.value?.trim()
+        if (contactEmail) {
+          await supabase.from('contacts').insert({
+            company_id: nieuwBedrijf.id,
+            name: naam,
+            email: contactEmail
+          })
+        }
+
+        // Notitie/activiteit toevoegen
+        await supabase.from('activities').insert({
+          company_id: nieuwBedrijf.id, type: 'mail',
+          subject: email.subject || '(geen onderwerp)',
+          body: email.samenvatting || email.raw_email?.slice(0, 500),
+          occurred_at: email.received_at, logged_by: uid
+        })
+
+        await supabase.from('email_inbox').update({ verwerkt: true }).eq('id', id)
+        await load()
+      })
+    })
+
+    // Negeren
     body.querySelectorAll('[data-action="negeren"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         await supabase.from('email_inbox').update({ verwerkt: true }).eq('id', btn.dataset.id)

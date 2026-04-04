@@ -17,15 +17,19 @@ export async function initShell(activeNav) {
   const profile = await getProfile(session.user.id)
   const name = profile?.full_name || session.user.email
   const ini = initials(name)
-const isAdmin = profile?.role === 'admin' || false
+  const isAdmin = profile?.role === 'admin'
 
   // Tel ongelezen inbox mails voor badge
   let inboxCount = 0
   try {
-    const { count } = await supabase
+    let q = supabase
       .from('email_inbox')
       .select('id', { count: 'exact', head: true })
       .eq('verwerkt', false)
+
+    if (!isAdmin) q = q.eq('assigned_to', session.user.id)
+
+    const { count } = await q
     inboxCount = count || 0
   } catch (e) { /* geen badge als query faalt */ }
 
