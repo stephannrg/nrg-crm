@@ -273,6 +273,15 @@ export async function openNieuweActie(container) {
         <div class="suggestion-name">${esc(c.name)}</div>
         <div class="suggestion-sub">${[c.city, c.sector].filter(Boolean).map(esc).join(' · ') || 'Geen info'}</div>
       </div>`).join('')
+    // Positioneer dropdown op basis van zoekveld positie
+    const searchEl = document.getElementById('actie-company-search')
+    if (searchEl) {
+      const rect = searchEl.getBoundingClientRect()
+      suggestions.style.position = 'fixed'
+      suggestions.style.top = (rect.bottom + 4) + 'px'
+      suggestions.style.left = rect.left + 'px'
+      suggestions.style.width = rect.width + 'px'
+    }
     suggestions.style.display = 'block'
     suggestions.querySelectorAll('.suggestion-item').forEach(el => {
       el.addEventListener('click', () => {
