@@ -8,6 +8,9 @@ const supabase = createClient(
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// NRG interne domeinen — nooit als klant behandelen
+const NRG_DOMEINEN = ['nrgsales.nl', 'nrggroup.nl', 'nrg.nl'];
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
@@ -16,7 +19,7 @@ exports.handler = async (event) => {
   try {
     const { from, to, cc, subject, rawEmail, receivedAt, attachments } = JSON.parse(event.body);
 
-    // Haal alle profielen op — afzender is altijd NRG medewerker
+    // Haal profielen op
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, full_name, email, role')
@@ -57,14 +60,16 @@ exports.handler = async (event) => {
 
     const emailInhoud = (rawEmail?.slice(0, 3000) || '') + attachmentSummary;
 
-    // Geadresseerden zijn de klanten (TO + CC)
-    const geadresseerden = [to, cc].filter(Boolean).join(', ')
-    const geadresseerdenDomeinen = [to, cc]
+    // Filter alle interne NRG adressen — alleen externe adressen zijn klanten
+    const alleAdressen = [to, cc]
       .filter(Boolean)
       .flatMap(addr => addr.split(',').map(a => a.trim()))
+      .filter(addr => addr && !NRG_DOMEINEN.some(d => addr.toLowerCase().includes(d)))
+
+    const externeGeadresseerden = alleAdressen.join(', ')
+    const externeDomeinen = alleAdressen
       .map(addr => addr.split('@')[1]?.toLowerCase())
       .filter(Boolean)
-      .filter(d => !['nrgsales.nl','nrggroup.nl','gmail.com','hotmail.com','outlook.com'].includes(d))
       .join(', ')
 
     const response = await anthropic.messages.create({
@@ -75,15 +80,16 @@ exports.handler = async (event) => {
         content: `Analyseer deze zakelijke e-mail voor een CRM systeem.
 
 CONTEXT:
-- De AFZENDER (${from}) is altijd een NRG medewerker — negeer de afzender voor bedrijfsmatching.
-- De GEADRESSEERDEN zijn de klanten: ${geadresseerden}
-- Externe domeinen van geadresseerden: ${geadresseerdenDomeinen || '(geen)'}
-- Match op basis van de geadresseerden en hun domeinen met bekende bedrijven/contacten.
+- De AFZENDER en alle adressen eindigend op nrggroup.nl, nrgsales.nl of nrg.nl zijn NRG medewerkers — gebruik deze NOOIT voor bedrijfsmatching en stel NOOIT voor om NRG Group als nieuw bedrijf aan te maken.
+- De KLANTEN zijn uitsluitend de externe geadresseerden: ${externeGeadresseerden || '(geen externe geadresseerden)'}
+- Externe domeinen van klanten: ${externeDomeinen || '(geen)'}
+- Match de externe domeinen met de website velden van bekende bedrijven. Bijv. domein "electure.nl" matcht met een bedrijf met website "electure.nl" of "www.electure.nl".
+- Als er geen externe geadresseerden zijn, gebruik dan suggestie_actie "geen_actie".
 
 Geef een JSON response met:
-- samenvatting: zakelijke samenvatting max 80 woorden. Vermeld expliciet aan wie de mail gestuurd is (naam/bedrijf als bekend).
-- geadresseerden: korte lijst van externe geadresseerden (buiten NRG)
-- bijlagen_samenvatting: korte beschrijving van relevante bijlagen (of null)
+- samenvatting: zakelijke samenvatting max 80 woorden. Vermeld expliciet aan welke externe partij de mail gestuurd is.
+- geadresseerden: externe geadresseerden als string (of null als er geen zijn)
+- bijlagen_samenvatting: beschrijving van relevante bijlagen (of null)
 - match_type: "bedrijf", "contactpersoon", "nieuw_contact", "nieuw_bedrijf", of "onbekend"
 - match_id: uuid van het gevonden bedrijf of contact (of null)
 - match_naam: naam van het gevonden bedrijf of contact (of null)
@@ -95,8 +101,7 @@ Bekende bedrijven (met website): ${JSON.stringify(companies?.slice(0, 50))}
 Bekende contacten: ${JSON.stringify(contacts?.slice(0, 50))}
 
 Van: ${from}
-Aan: ${to || ''}
-CC: ${cc || ''}
+Externe geadresseerden: ${externeGeadresseerden || '(geen)'}
 Onderwerp: ${subject}
 Inhoud: ${emailInhoud}
 
@@ -111,7 +116,7 @@ Geef ALLEEN een JSON object terug, geen andere tekst.`
       .from('email_inbox')
       .insert({
         from_email: from,
-        to_email: to,
+        to_email: externeGeadresseerden || null,
         cc_email: cc || null,
         subject: subject,
         received_at: receivedAt,
