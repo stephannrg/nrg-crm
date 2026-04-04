@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Taken — NRG CRM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css"/>
+  <script src="../js/config.js"></script>/>
+
+</head>
+<body>
+<script type="module">
+import { initShell } from '../js/shell.js'
+import { supabase } from '../js/supabase.js'
+import { esc, formatDate, isOverdue } from '../js/utils.js'
+
+const ctx = await initShell('taken')
+if (!ctx) throw new Error()
+const uid = ctx.session.user.id
+
+const main = document.getElementById('main-content')
+main.innerHTML = `
+  <div class="topbar"><h1>Mijn taken</h1></div>
+  <div class="page-content">
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="btn btn-primary" id="f-open" data-f="open">Open</button>
+      <button class="btn btn-secondary" id="f-all" data-f="all">Alle</button>
+      <button class="btn btn-secondary" id="f-done" data-f="done">Gedaan</button>
+    </div>
+    <div class="card"><div class="card-body" id="task-body"><div class="loading"><div class="spinner"></div></div></div></div>
+  </div>
+`
+
+let tasks=[], filter='open'
+
+async function load(){
+  const { data } = await supabase.from('tasks').select('*,companies(id,name)').eq('assigned_to',uid).order('due_date')
+  tasks = data||[]
+  render()
+}
+
+function render(){
+  const filtered = tasks.filter(t => filter==='open'?t.status==='open':filter==='done'?t.status==='gedaan':true)
+  const body = document.getElementById('task-body')
+  if(!filtered.length){ body.innerHTML='<div class="empty-state"><p>Geen taken.</p></div>'; return }
+  body.innerHTML = `<div>${filtered.map(t => {
+    const over = isOverdue(t.due_date) && t.status==='open'
+    return `
+    <div class="task-item">
+      <div class="task-check ${t.status==='gedaan'?'done':''}" data-id="${t.id}" data-status="${t.status}">
+        ${t.status==='gedaan'?'<svg width="10" height="10" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>':''}
+      </div>
+      <div class="task-body">
+        <div class="task-title ${t.status==='gedaan'?'done':''}">${esc(t.title)}</div>
+        <div class="task-due ${over?'overdue':''}">
+          ${t.companies?`<a href="/pages/klant.html?id=${t.companies.id}" style="color:var(--teal-m);font-weight:500">${esc(t.companies.name)}</a> · `:''}
+          ${t.due_date?formatDate(t.due_date):'Geen deadline'}
+          ${over?' · <strong>Verlopen!</strong>':''}
+        </div>
+      </div>
+    </div>`}).join('')}</div>`
+
+  body.querySelectorAll('.task-check').forEach(el => {
+    el.addEventListener('click', async () => {
+      const newStatus = el.dataset.status==='open'?'gedaan':'open'
+      await supabase.from('tasks').update({status:newStatus}).eq('id',el.dataset.id)
+      await load()
+    })
+  })
+}
+
+document.querySelectorAll('[data-f]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-f]').forEach(b=>b.className='btn btn-secondary')
+    btn.className='btn btn-primary'
+    filter=btn.dataset.f; render()
+  })
+})
+
+await load()
+</script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>NRG CRM — Inloggen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css"/>
+</head>
+<body class="login-page">
+  <div class="login-wrap">
+    <div class="login-brand">
+      <div class="login-logo-wrap">
+        <img src="img/logo.png" alt="nrg" class="login-logo-img"/>
+        <span class="login-logo-crm">CRM</span>
+      </div>
+      <p>Sales · Klanten · Pipeline</p>
+    </div>
+    <div class="login-card">
+      <h2>Inloggen</h2>
+      <div id="error" class="alert alert-error" style="display:none"></div>
+      <form id="form">
+        <div class="field">
+          <label>E-mailadres</label>
+          <input type="email" id="email" placeholder="naam@nrggroup.nl" required autocomplete="email"/>
+        </div>
+        <div class="field">
+          <label>Wachtwoord</label>
+          <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password"/>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full" id="login-btn">Inloggen</button>
+      </form>
+      <div class="login-divider">of</div>
+      <button class="btn btn-ghost btn-full" id="magic-btn">Magic link sturen</button>
+      <div id="magic-ok" class="alert alert-success" style="display:none;margin-top:12px">✓ Check je inbox.</div>
+    </div>
+  </div>
+  <script type="module">
+    import { supabase } from './js/supabase.js'
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) location.href = '/pages/dashboard.html'
+    const errorEl = document.getElementById('error')
+    const loginBtn = document.getElementById('login-btn')
+    document.getElementById('form').addEventListener('submit', async e => {
+      e.preventDefault()
+      errorEl.style.display = 'none'
+      loginBtn.disabled = true; loginBtn.textContent = 'Bezig...'
+      const { error } = await supabase.auth.signInWithPassword({
+        email: document.getElementById('email').value.trim(),
+        password: document.getElementById('password').value
+      })
+      if (error) {
+        errorEl.textContent = 'Onjuist e-mailadres of wachtwoord.'
+        errorEl.style.display = 'block'
+        loginBtn.disabled = false; loginBtn.textContent = 'Inloggen'
+      } else {
+        location.href = '/pages/dashboard.html'
+      }
+    })
+    document.getElementById('magic-btn').addEventListener('click', async () => {
+      const email = document.getElementById('email').value.trim()
+      if (!email) { errorEl.textContent = 'Vul eerst je e-mailadres in.'; errorEl.style.display = 'block'; return }
+      await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + '/pages/dashboard.html' } })
+      document.getElementById('magic-ok').style.display = 'block'
+    })
+  </script>
+</body>
+</html>

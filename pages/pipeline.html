@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Pipeline — NRG CRM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css"/>
+  <script src="../js/config.js"></script>
+</head>
+<body>
+<script type="module">
+import { initShell } from '../js/shell.js'
+import { supabase } from '../js/supabase.js'
+import { esc, formatEuro, formatDate, stageLabel, showModal, hideModal } from '../js/utils.js'
+
+const ctx = await initShell('pipeline')
+if (!ctx) throw new Error()
+const uid = ctx.session.user.id
+
+const STAGES = ['lead','gekwalificeerd','offerte','onderhandeling','gewonnen','verloren']
+const STAGE_COLORS = { lead:'#aaa', gekwalificeerd:'#4a6cf7', offerte:'#e8943a', onderhandeling:'#9b59b6', gewonnen:'#00af70', verloren:'#d94f4f' }
+const fmt = v => new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v||0)
+
+const main = document.getElementById('main-content')
+main.innerHTML = `
+  <div class="topbar">
+    <h1>Pipeline</h1>
+    <button class="btn btn-primary" id="add-deal-btn">+ Deal toevoegen</button>
+  </div>
+  <div class="pipeline-layout">
+    <div class="pipeline-stats" id="p-stats"></div>
+    <div class="kanban-scroll">
+      <div id="kanban" class="kanban">
+        <div class="loading"><div class="spinner"></div> Laden...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deal Modal -->
+  <div class="modal-overlay" id="deal-modal">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 id="deal-modal-title">Deal toevoegen</h3>
+        <button class="btn btn-icon close-btn" id="close-deal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field"><label>Titel *</label><input id="d-title" placeholder="Bijv. CPMS implementatie 10 palen"/></div>
+        <div class="field"><label>Klant *</label>
+          <select id="d-company"><option value="">Selecteer klant...</option></select>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Fase</label>
+            <select id="d-stage">${STAGES.map(s=>`<option value="${s}">${stageLabel(s)}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Dealwaarde (€)</label>
+            <input id="d-value" type="number" min="0" placeholder="Totale contractwaarde"/>
+          </div>
+        </div>
+        <div class="field">
+          <label>Kwalificatie: <span id="kwal-display">0</span>%</label>
+          <input type="range" id="d-kwalificatie" min="0" max="100" step="5" value="0"
+            style="width:100%;accent-color:var(--green);margin-top:4px"
+            oninput="document.getElementById('kwal-display').textContent=this.value"/>
+          <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:2px">
+            <span>0% — Lead</span><span>50%</span><span>100% — Zeker</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Verwachte omzet NRG (€)</label>
+            <input id="d-verwachte-omzet" type="number" min="0" placeholder="NRG aandeel"/>
+          </div>
+          <div class="field"><label>Verwachte sluitdatum</label>
+            <input id="d-close" type="date"/>
+          </div>
+        </div>
+        <div class="field"><label>Notities</label><textarea id="d-notes"></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="close-deal2">Annuleren</button>
+        <button class="btn btn-primary" id="save-deal-btn">Opslaan</button>
+      </div>
+    </div>
+  </div>
+`
+
+let deals = [], companies = [], editingId = null
+
+async function load() {
+  const [{ data: d }, { data: c }] = await Promise.all([
+    supabase.from('deals').select('*,companies(id,name)').order('created_at',{ascending:false}),
+    supabase.from('companies').select('id,name').order('name')
+  ])
+  deals = d||[]; companies = c||[]
+
+  const sel = document.getElementById('d-company')
+  const cur = sel.value
+  sel.innerHTML = '<option value="">Selecteer klant...</option>'
+  companies.forEach(c => {
+    const o = document.createElement('option')
+    o.value = c.id; o.textContent = c.name
+    if (c.id === cur) o.selected = true
+    sel.appendChild(o)
+  })
+
+  renderStats()
+  renderKanban()
+}
+
+function renderStats() {
+  const active  = deals.filter(d => !['gewonnen','verloren'].includes(d.stage))
+  const won     = deals.filter(d => d.stage === 'gewonnen')
+  const lost    = deals.filter(d => d.stage === 'verloren')
+  const totalV  = active.reduce((s,d) => s+(d.value||0), 0)
+  const wonV    = won.reduce((s,d) => s+(d.value||0), 0)
+  const gewogen = active.reduce((s,d) => s+((d.verwachte_omzet||0)*((d.kwalificatie||0)/100)), 0)
+
+  document.getElementById('p-stats').innerHTML = `
+    <div class="p-stat"><span class="p-stat-label">Open deals</span><span class="p-stat-value">${active.length}</span></div>
+    <div class="p-stat"><span class="p-stat-label">Pipeline waarde</span><span class="p-stat-value" style="font-size:15px">${fmt(totalV)}</span></div>
+    <div class="p-stat"><span class="p-stat-label">Gewogen omzet</span><span class="p-stat-value" style="font-size:15px;color:var(--green)">${fmt(gewogen)}</span><span class="p-stat-sub">kwal. × verwacht</span></div>
+    <div class="p-stat"><span class="p-stat-label">Gewonnen</span><span class="p-stat-value" style="color:var(--green)">${won.length}</span><span class="p-stat-sub">${fmt(wonV)}</span></div>
+    <div class="p-stat"><span class="p-stat-label">Verloren</span><span class="p-stat-value" style="color:var(--danger)">${lost.length}</span></div>
+  `
+}
+
+function renderKanban() {
+  const kanban = document.getElementById('kanban')
+  kanban.innerHTML = STAGES.map(stage => {
+    const sd = deals.filter(d => d.stage === stage)
+    const sv = sd.reduce((s,d) => s+(d.value||0), 0)
+    return `
+    <div class="k-col">
+      <div class="k-col-head">
+        <div class="k-col-title">
+          <div class="k-dot" style="background:${STAGE_COLORS[stage]}"></div>
+          <span>${stageLabel(stage)}</span>
+        </div>
+        <span class="k-count">${sd.length}</span>
+      </div>
+      ${sv > 0 ? `<div class="k-val">${fmt(sv)}</div>` : ''}
+      <div class="k-cards" data-stage="${stage}">
+        ${sd.map(d => {
+          const kwal = d.kwalificatie || 0
+          const kwalColor = kwal >= 70 ? 'var(--green)' : kwal >= 40 ? 'var(--warning)' : 'var(--danger)'
+          return `
+          <div class="deal-card" data-id="${d.id}" draggable="true">
+            <div class="deal-title">${esc(d.title)}</div>
+            <div class="deal-company">
+              <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              ${esc(d.companies?.name||'—')}
+            </div>
+            <div class="deal-meta">
+              ${d.value ? `<span class="deal-value">${fmt(d.value)}</span>` : '<span></span>'}
+              ${d.expected_close ? `<span class="deal-date">${formatDate(d.expected_close)}</span>` : ''}
+            </div>
+            <div class="kwal-bar-wrap" title="Kwalificatie: ${kwal}%" style="margin-top:7px">
+              <div class="kwal-bar" style="width:${kwal}%;background:${kwalColor}"></div>
+            </div>
+            <div class="kwal-label">${kwal}% gekwalificeerd${d.verwachte_omzet ? ' · ' + fmt(d.verwachte_omzet) + ' verwacht' : ''}</div>
+          </div>`
+        }).join('')}
+      </div>
+      <div class="k-add add-stage-btn" data-stage="${stage}">+ Deal</div>
+    </div>`
+  }).join('')
+
+  // Click to edit
+  kanban.querySelectorAll('.deal-card').forEach(card => {
+    card.addEventListener('click', () => openEdit(card.dataset.id))
+  })
+
+  // Add per stage
+  kanban.querySelectorAll('.add-stage-btn').forEach(btn => {
+    btn.addEventListener('click', () => openAdd(btn.dataset.stage))
+  })
+
+  // Drag & drop
+  let dragging = null
+  kanban.querySelectorAll('.deal-card').forEach(card => {
+    card.addEventListener('dragstart', () => { dragging = card; setTimeout(() => card.classList.add('drag-over-active'), 0) })
+    card.addEventListener('dragend', () => { card.classList.remove('drag-over-active'); dragging = null })
+  })
+  kanban.querySelectorAll('.k-cards').forEach(col => {
+    col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drop-target') })
+    col.addEventListener('dragleave', () => col.classList.remove('drop-target'))
+    col.addEventListener('drop', async () => {
+      col.classList.remove('drop-target')
+      if (!dragging) return
+      const newStage = col.dataset.stage
+      const id = dragging.dataset.id
+      await supabase.from('deals').update({ stage: newStage }).eq('id', id)
+      if (newStage === 'gewonnen') {
+        const deal = deals.find(d => d.id === id)
+        if (deal?.companies?.id)
+          await supabase.from('companies').update({status:'klant'}).eq('id',deal.companies.id).in('status',['suspect','prospect'])
+      }
+      await load()
+    })
+  })
+}
+
+function openAdd(stage = 'lead') {
+  editingId = null
+  document.getElementById('deal-modal-title').textContent = 'Deal toevoegen'
+  document.getElementById('d-title').value         = ''
+  document.getElementById('d-company').value       = ''
+  document.getElementById('d-stage').value         = stage
+  document.getElementById('d-value').value         = ''
+  document.getElementById('d-kwalificatie').value  = 0
+  document.getElementById('kwal-display').textContent = '0'
+  document.getElementById('d-verwachte-omzet').value = ''
+  document.getElementById('d-close').value         = ''
+  document.getElementById('d-notes').value         = ''
+  showModal('deal-modal')
+}
+
+function openEdit(id) {
+  editingId = id
+  const d = deals.find(x => x.id === id)
+  if (!d) return
+  document.getElementById('deal-modal-title').textContent = 'Deal bewerken'
+  document.getElementById('d-title').value         = d.title || ''
+  document.getElementById('d-company').value       = d.companies?.id || ''
+  document.getElementById('d-stage').value         = d.stage || 'lead'
+  document.getElementById('d-value').value         = d.value || ''
+  document.getElementById('d-kwalificatie').value  = d.kwalificatie || 0
+  document.getElementById('kwal-display').textContent = d.kwalificatie || 0
+  document.getElementById('d-verwachte-omzet').value = d.verwachte_omzet || ''
+  document.getElementById('d-close').value         = d.expected_close || ''
+  document.getElementById('d-notes').value         = d.notes || ''
+  showModal('deal-modal')
+}
+
+// Events
+document.getElementById('add-deal-btn').addEventListener('click', () => openAdd())
+document.getElementById('close-deal').addEventListener('click',  () => hideModal('deal-modal'))
+document.getElementById('close-deal2').addEventListener('click', () => hideModal('deal-modal'))
+
+document.getElementById('save-deal-btn').addEventListener('click', async () => {
+  const title = document.getElementById('d-title').value.trim()
+  const cid   = document.getElementById('d-company').value
+  if (!title) { alert('Vul een titel in.'); return }
+  if (!cid)   { alert('Selecteer een klant.'); return }
+
+  const btn = document.getElementById('save-deal-btn')
+  btn.disabled = true; btn.textContent = 'Opslaan...'
+
+  const newStage = document.getElementById('d-stage').value
+  const payload  = {
+    company_id:      cid,
+    title,
+    stage:           newStage,
+    value:           parseFloat(document.getElementById('d-value').value) || null,
+    kwalificatie:    parseInt(document.getElementById('d-kwalificatie').value) || 0,
+    verwachte_omzet: parseFloat(document.getElementById('d-verwachte-omzet').value) || null,
+    expected_close:  document.getElementById('d-close').value || null,
+    notes:           document.getElementById('d-notes').value.trim() || null,
+    owner_id:        uid
+  }
+
+  if (editingId) {
+    await supabase.from('deals').update(payload).eq('id', editingId)
+  } else {
+    await supabase.from('deals').insert(payload)
+  }
+
+  if (newStage === 'gewonnen')
+    await supabase.from('companies').update({status:'klant'}).eq('id',cid).in('status',['suspect','prospect'])
+
+  hideModal('deal-modal')
+  btn.disabled = false; btn.textContent = 'Opslaan'
+  await load()
+})
+
+await load()
+</script>
+</body>
+</html>

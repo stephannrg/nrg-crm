@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Klant — NRG CRM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css"/>
+  <script src="../js/config.js"></script>
+  <style>
+    /* Info grid */
+    .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+    .info-item { padding: 12px 16px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .info-item:nth-child(3n) { border-right: none; }
+    .info-item:nth-last-child(-n+3) { border-bottom: none; }
+    .info-label { font-size: 10.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .info-value { font-size: 13.5px; font-weight: 500; color: var(--text); word-break: break-word; }
+    .info-value a { color: var(--teal-m); }
+    .info-value.empty { color: var(--muted); font-weight: 400; }
+    .info-value select { max-width: 100%; }
+
+    /* Note log */
+    .note-log-item { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+    .note-log-item:last-child { border-bottom: none; }
+    .note-log-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
+    .note-log-meta { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .note-log-text { font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+
+    /* Two-col layout — sidebar links, main rechts */
+    .detail-layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .detail-sidebar { display: flex; flex-direction: column; gap: 16px; }
+    .detail-main { display: flex; flex-direction: column; gap: 16px; }
+
+    /* Tablet ≤ 1100px (sidebar 228px + 320px sidebar + padding = krap) */
+    @media (max-width: 1100px) {
+      .detail-layout { grid-template-columns: 280px 1fr; }
+    }
+
+    /* Tablet ≤ 900px — één kolom, main boven sidebar */
+    @media (max-width: 900px) {
+      .detail-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+      }
+      /* Zet main (notities+tijdlijn) ONDER de bedrijfsinfo maar BOVEN sidebar */
+      .detail-main { order: 1; }
+      .detail-sidebar { order: 2; }
+      .info-grid { grid-template-columns: repeat(2, 1fr); }
+      .info-item:nth-child(2n) { border-right: none; }
+      .info-item:nth-child(3n) { border-right: 1px solid var(--border); }
+    }
+
+    /* Mobiel ≤ 768px */
+    @media (max-width: 768px) {
+      .page { padding: 12px; padding-bottom: 80px; }
+
+      .info-grid { grid-template-columns: 1fr 1fr; }
+      .info-item { padding: 10px 12px; }
+      .info-item:nth-child(2n) { border-right: none; }
+      .info-item:nth-child(3n) { border-right: 1px solid var(--border); }
+      .info-label { font-size: 9.5px; }
+      .info-value { font-size: 12.5px; }
+
+      /* Topbar compacter */
+      .topbar { padding: 0 12px; height: 50px; }
+      .topbar h1 { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+      #topbar-actie-btn span:not(svg) { display: none; }
+      #topbar-actie-btn { padding: 8px 10px; }
+
+      /* Cards */
+      .card-header { padding: 12px 14px; }
+      .card-header h3 { font-size: 13px; }
+      .card-body { padding: 14px; }
+
+      /* Notitie log */
+      .note-log-item { padding: 12px 14px; }
+      .note-log-header { flex-wrap: wrap; }
+      .note-log-meta { font-size: 11px; }
+      .note-log-text { font-size: 13px; margin-left: 0 !important; margin-top: 6px; }
+      .note-edit-btn, .note-delete-btn { padding: 3px 6px !important; font-size: 11px !important; }
+      #note-input { min-height: 80px; font-size: 14px; }
+
+      /* Detail header */
+      .detail-icon { width: 44px; height: 44px; font-size: 17px; }
+      .detail-info h2 { font-size: 17px; }
+
+      /* Relation banner */
+      .relation-banner { padding: 12px 14px; }
+    }
+
+    /* Klein mobiel ≤ 480px */
+    @media (max-width: 480px) {
+      .info-grid { grid-template-columns: 1fr; }
+      .info-item { border-right: none !important; }
+      .info-item:nth-last-child(1) { border-bottom: none; }
+      .field-row { grid-template-columns: 1fr; }
+    }
+</style>
+</head>
+<body>
+<script type="module">
+import { initShell } from '../js/shell.js'
+import { supabase } from '../js/supabase.js'
+import { esc, formatDate, formatDateShort, formatEuro, stageLabel, statusLabel, activityIcon, activityLabel, fileSizeLabel, showModal, hideModal, isOverdue } from '../js/utils.js'
+import { openNieuweActie } from './actie.js'
+
+const ctx = await initShell('klanten')
+if (!ctx) throw new Error()
+const uid = ctx.session.user.id
+const cid = new URLSearchParams(location.search).get('id')
+if (!cid) { location.href = '/pages/klanten.html'; throw new Error() }
+
+const main = document.getElementById('main-content')
+main.innerHTML = `
+  <div class="topbar">
+    <a href="/pages/klanten.html" class="btn btn-icon btn-secondary" style="margin-right:4px">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <h1 id="page-title">Klant</h1>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" id="topbar-actie-btn">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Actie loggen
+      </button>
+      <button class="btn btn-sm btn-secondary" id="edit-btn">✎ Bewerken</button>
+    </div>
+  </div>
+  <div class="page" id="body">
+    <div class="loading"><div class="spinner"></div> Laden...</div>
+  </div>
+`
+await openNieuweActie(main)
+
+let data = {}
+
+async function load() {
+  const [
+    { data: company },
+    { data: ctags },
+    { data: contacts },
+    { data: deals },
+    { data: activities },
+    { data: tasks },
+    { data: attachments },
+    { data: notes },
+    { data: allTags },
+    { data: allUsers }
+  ] = await Promise.all([
+    supabase.from('companies').select('*').eq('id', cid).single(),
+    supabase.from('company_tags').select('tag_id,tags(id,name,type)').eq('company_id', cid),
+    supabase.from('contacts').select('*').eq('company_id', cid).order('is_primary', { ascending: false }),
+    supabase.from('deals').select('*').eq('company_id', cid).order('created_at', { ascending: false }),
+    supabase.from('activities').select('*,profiles(full_name)').eq('company_id', cid).order('occurred_at', { ascending: false }),
+    supabase.from('tasks').select('*,profiles!tasks_assigned_to_fkey(full_name)').eq('company_id', cid).order('due_date').order('created_at',{ascending:false}),
+    supabase.from('attachments').select('*,profiles(full_name)').eq('company_id', cid).order('created_at', { ascending: false }),
+    supabase.from('company_notes').select('*,profiles(full_name)').eq('company_id', cid).order('created_at', { ascending: false }),
+    supabase.from('tags').select('*').order('name'),
+    supabase.from('profiles').select('id,full_name')
+  ])
+
+  data = { company, ctags: ctags||[], contacts: contacts||[], deals: deals||[], activities: activities||[], tasks: tasks||[], attachments: attachments||[], notes: notes||[], allTags: allTags||[], allUsers: allUsers||[] }
+  document.getElementById('page-title').textContent = company.name
+  render()
+}
+
+function render() {
+  const { company, ctags, contacts, deals, activities, tasks, attachments, notes } = data
+  const tags = ctags.map(ct => `<span class="tag tag-${ct.tags?.type}">${esc(ct.tags?.name)}</span>`).join(' ')
+
+  // Merged timeline
+  const timeline = [
+    ...activities.map(a => ({ ...a, _kind: 'activity', _date: new Date(a.occurred_at) })),
+    ...tasks.map(t => ({ ...t, _kind: 'task', _date: new Date(t.due_date || t.created_at) }))
+  ].sort((a, b) => b._date - a._date)
+
+  const body = document.getElementById('body')
+  body.innerHTML = `
+
+    ${company.relation_type ? `
+    <div class="relation-banner relation-banner-${company.relation_type === 'joint_venture' ? 'jv' : 'partner'}">
+      <div class="relation-banner-icon">${company.relation_type === 'joint_venture' ? '🤝' : '🔗'}</div>
+      <div class="relation-banner-body">
+        <div class="relation-banner-title">${company.relation_type === 'joint_venture' ? 'Joint venture' : 'Strategisch partner'} — let op bij commerciële gesprekken</div>
+        ${company.relation_note ? `<div class="relation-banner-note">${esc(company.relation_note)}</div>` : ''}
+      </div>
+    </div>` : ''}
+
+    <!-- Header -->
+    <div class="card" style="margin-bottom:0">
+      <div style="padding:20px;display:flex;align-items:flex-start;gap:16px;border-bottom:1px solid var(--border)">
+        <div class="detail-icon">${company.name[0].toUpperCase()}</div>
+        <div style="flex:1;min-width:0">
+          <h2 style="font-size:20px;font-weight:800;letter-spacing:-.3px;margin-bottom:6px">${esc(company.name)}</h2>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="status status-${company.status || 'suspect'}">${statusLabel(company.status || 'suspect')}</span>
+            ${tags}
+            ${company.marketing_opt_in ? '<span class="tag tag-marketing">Marketing ✓</span>' : ''}
+            ${company.potentie ? `<span class="potentie potentie-${company.potentie}">${{'klein':'Klein','middel':'Middel','groot':'Groot','strategisch':'⭐ Strategisch'}[company.potentie]}</span>` : ''}
+            ${company.relation_type ? `<span class="relation-badge ${company.relation_type === 'joint_venture' ? 'relation-jv' : 'relation-partner'}">${company.relation_type === 'joint_venture' ? '🤝 JV' : '🔗 Partner'}</span>` : ''}
+          </div>
+        </div>
+        <button class="btn btn-sm btn-secondary" id="edit-company-btn">✎ Bewerken</button>
+      </div>
+
+      <!-- Info grid -->
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">Sector</div>
+          <div class="info-value ${!company.sector ? 'empty' : ''}">${esc(company.sector || 'Niet ingevuld')}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Accountverantwoordelijke</div>
+          <div class="info-value">
+            <select id="owner-select" style="border:none;background:none;font-family:var(--font);font-size:13.5px;font-weight:500;color:var(--text);cursor:pointer;padding:0;outline:none;width:100%">
+              <option value="">Niet toegewezen</option>
+              ${data.allUsers.map(u => `<option value="${u.id}" ${company.owner_id === u.id ? 'selected' : ''}>${esc(u.full_name)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Adres</div>
+          <div class="info-value ${!company.address ? 'empty' : ''}">${company.address ? esc(company.address) + (company.city ? ', ' + esc(company.city) : '') : 'Niet ingevuld'}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">KvK-nummer</div>
+          <div class="info-value ${!company.kvk_number ? 'empty' : ''}">${esc(company.kvk_number || 'Niet ingevuld')}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Website</div>
+          <div class="info-value ${!company.website ? 'empty' : ''}">
+            ${company.website ? `<a href="${esc(company.website)}" target="_blank">${esc(company.website.replace(/^https?:\/\//, ''))}</a>` : 'Niet ingevuld'}
+          </div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Stad</div>
+          <div class="info-value ${!company.city ? 'empty' : ''}">${esc(company.city || 'Niet ingevuld')}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Postcode</div>
+          <div class="info-value ${!company.postal_code ? 'empty' : ''}">${esc(company.postal_code || 'Niet ingevuld')}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Potentie</div>
+          <div class="info-value">${company.potentie ? `<span class="potentie potentie-${company.potentie}">${{'klein':'Klein','middel':'Middel','groot':'Groot','strategisch':'⭐ Strategisch'}[company.potentie]}</span>` : '<span class="empty">Niet ingesteld</span>'}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Opvolgfrequentie</div>
+          <div class="info-value ${!company.opvolgfrequentie ? 'empty' : ''}">${company.opvolgfrequentie ? 'Elke ' + company.opvolgfrequentie + ' dagen' : 'Niet ingesteld'}</div>
+        </div>
+        <div class="info-item" style="grid-column:1/-1;border-right:none">
+          <div class="info-label">Notitie</div>
+          <div class="info-value ${!company.notes ? 'empty' : ''}" style="white-space:pre-wrap">${esc(company.notes || 'Geen notities')}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-layout">
+
+      <!-- LEFT SIDEBAR -->
+      <div class="detail-sidebar">
+
+        <!-- Contactpersonen -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Contactpersonen (${contacts.length})</h3>
+            <button class="btn btn-sm btn-primary" id="add-contact-btn">+ Toevoegen</button>
+          </div>
+          <div class="card-body" style="padding:0">
+            ${contacts.length ? contacts.map(c => `
+              <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                <div>
+                  <div class="fw-7" style="font-size:13.5px;margin-bottom:2px">
+                    ${esc(c.first_name)} ${esc(c.last_name)}
+                    ${c.is_primary ? '<span class="tag tag-product" style="font-size:10px;margin-left:6px">Primair</span>' : ''}
+                  </div>
+                  ${c.job_title ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">${esc(c.job_title)}${c.department ? ' · ' + esc(c.department) : ''}</div>` : ''}
+                  ${c.email ? `<div style="display:flex;align-items:center;gap:5px;font-size:12.5px;margin-bottom:2px"><svg width="12" height="12" fill="none" stroke="var(--muted)" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><a href="mailto:${esc(c.email)}" style="color:var(--teal-m)">${esc(c.email)}</a></div>` : ''}
+                  ${c.phone ? `<div style="display:flex;align-items:center;gap:5px;font-size:12.5px"><svg width="12" height="12" fill="none" stroke="var(--muted)" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 11.27 18 19.5 19.5 0 0 1 5 11.74 19.79 19.79 0 0 1 2.12 2.18 2 2 0 0 1 4.11 0h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 7.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg><a href="tel:${esc(c.phone)}" style="color:var(--teal-m)">${esc(c.phone)}</a></div>` : ''}
+                  ${c.linkedin_url ? `<div style="font-size:12px;margin-top:3px"><a href="${esc(c.linkedin_url)}" target="_blank" style="color:#0077b5">LinkedIn →</a></div>` : ''}
+                </div>
+                <button class="btn btn-sm btn-secondary edit-contact-btn" data-id="${c.id}" style="flex-shrink:0">✎</button>
+              </div>`).join('') + '<div style="height:1px"></div>'
+            : '<div style="padding:16px;color:var(--muted);font-size:13px">Nog geen contactpersonen.</div>'}
+          </div>
+        </div>
+
+        <!-- Deals -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Deals (${deals.length})</h3>
+            <button class="btn btn-sm btn-primary" id="add-deal-btn">+ Deal</button>
+          </div>
+          <div class="card-body" style="padding:0">
+            ${deals.length ? deals.map(d => `
+              <div style="padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px">
+                <div>
+                  <div class="fw-6" style="font-size:13px;margin-bottom:4px">${esc(d.title)}</div>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    <span class="stage stage-${d.stage}">${stageLabel(d.stage)}</span>
+                    ${d.value ? `<span class="text-green fw-6" style="font-size:13px">${formatEuro(d.value)}</span>` : ''}
+                    ${d.expected_close ? `<span style="font-size:11.5px;color:var(--muted)">${formatDate(d.expected_close)}</span>` : ''}
+                  </div>
+                </div>
+                <button class="btn btn-sm btn-secondary edit-deal-btn" data-id="${d.id}" style="flex-shrink:0">✎</button>
+              </div>`).join('') + '<div style="height:1px"></div>'
+            : '<div style="padding:16px;color:var(--muted);font-size:13px">Nog geen deals.</div>'}
+          </div>
+        </div>
+
+        <!-- Bijlagen -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Bijlagen (${attachments.length})</h3>
+            <button class="btn btn-sm btn-primary" id="add-att-btn">+ Uploaden</button>
+          </div>
+          <div class="card-body" style="padding:0">
+            ${attachments.length ? attachments.map(a => `
+              <div style="padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+                <svg width="16" height="16" fill="none" stroke="var(--muted)" stroke-width="1.5" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <div style="flex:1;min-width:0">
+                  <div class="fw-6" style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.file_name)}</div>
+                  <div style="font-size:11.5px;color:var(--muted)">${fileSizeLabel(a.file_size)} · ${formatDate(a.created_at)}</div>
+                </div>
+                <button class="btn btn-sm btn-secondary dl-btn" data-path="${esc(a.storage_path)}">↓</button>
+                <button class="btn btn-sm btn-danger del-att-btn" data-id="${a.id}" data-path="${esc(a.storage_path)}">✕</button>
+              </div>`).join('')
+            : '<div style="padding:16px;color:var(--muted);font-size:13px">Geen bijlagen.</div>'}
+          </div>
+        </div>
+
+      </div>
+
+      <!-- MAIN COLUMN -->
+      <div class="detail-main">
+
+        <!-- Notities log -->
+        <div class="card">
+          <div class="card-header"><h3>Notities</h3></div>
+          <div id="notes-list">
+            ${data.notes.length ? data.notes.map(n => {
+              const ini = (n.profiles?.full_name||'?').split(' ').map(x=>x[0]).join('').slice(0,2).toUpperCase()
+              const isOwn = n.created_by === uid
+              return `
+              <div class="note-log-item" data-note-id="${n.id}">
+                <div class="note-log-header">
+                  <div style="display:flex;align-items:center;gap:9px">
+                    <div class="avatar" style="width:28px;height:28px;font-size:10px;flex-shrink:0">${ini}</div>
+                    <span style="font-size:13px;font-weight:700;color:var(--dark)">${esc(n.profiles?.full_name||'Onbekend')}</span>
+                    <span class="note-log-meta">${formatDate(n.created_at)}</span>
+                  </div>
+                  <div style="display:flex;gap:4px">
+                    <button class="btn btn-sm btn-secondary note-edit-btn" data-id="${n.id}" data-text="${esc(n.text)}" title="Bewerken" style="padding:4px 8px;font-size:12px">✎</button>
+                    <button class="btn btn-sm btn-danger note-delete-btn" data-id="${n.id}" title="Verwijderen" style="padding:4px 8px;font-size:12px">✕</button>
+                  </div>
+                </div>
+                <div class="note-log-text" id="note-text-${n.id}" style="margin-left:37px">${esc(n.text)}</div>
+                <div class="note-edit-form" id="note-edit-${n.id}" style="display:none;margin-left:37px;margin-top:8px">
+                  <textarea class="note-edit-area" data-id="${n.id}" style="width:100%;padding:10px 12px;border:1.5px solid var(--green);border-radius:var(--r-sm);font-family:var(--font);font-size:14px;resize:none;min-height:80px;outline:none;background:var(--surface);line-height:1.6;box-shadow:0 0 0 3px rgba(0,175,112,.1);-webkit-appearance:none">${esc(n.text)}</textarea>
+                  <div style="display:flex;gap:6px;margin-top:6px;justify-content:flex-end">
+                    <button class="btn btn-sm btn-secondary note-edit-cancel" data-id="${n.id}">Annuleren</button>
+                    <button class="btn btn-sm btn-primary note-edit-save" data-id="${n.id}">Opslaan</button>
+                  </div>
+                </div>
+              </div>`
+            }).join('')
+            : '<div style="padding:20px 18px;color:var(--muted);font-size:13.5px;font-style:italic">Nog geen notities toegevoegd.</div>'}
+          </div>
+          <div style="padding:16px;border-top:1px solid var(--border);background:var(--bg);border-radius:0 0 var(--r) var(--r)">
+            <div id="note-dictate-status" class="dictate-status" style="margin-bottom:8px"></div>
+            <textarea id="note-input" placeholder="Schrijf een notitie of gebruik de microfoon om in te spreken..." style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:var(--font);font-size:14px;resize:none;min-height:80px;outline:none;background:var(--surface);line-height:1.6;transition:border-color .15s,box-shadow .15s;display:block" onfocus="this.style.borderColor='var(--green)';this.style.boxShadow='0 0 0 3px rgba(0,175,112,.1)'" onblur="this.style.borderColor='var(--border)';this.style.boxShadow='none'"></textarea>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+              <button type="button" id="note-dictate-btn" class="dictate-btn">
+                <svg id="note-dictate-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                <span id="note-dictate-label">Inspreken</span>
+              </button>
+              <button class="btn btn-primary" id="note-save-btn">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Notitie toevoegen
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tijdlijn -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Tijdlijn (${activities.length + tasks.length})</h3>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-sm btn-secondary" id="add-task-btn">+ Taak</button>
+              <button class="btn btn-sm btn-primary" id="add-actie-btn">+ Actie loggen</button>
+            </div>
+          </div>
+          <div class="card-body" style="${timeline.length ? 'padding-top:16px' : ''}">
+            ${timeline.length ? `
+            <div class="timeline">
+              ${timeline.map(item => {
+                if (item._kind === 'activity') {
+                  return `
+                  <div class="timeline-item">
+                    <div class="timeline-dot td-${item.type}">${activityIcon(item.type)}</div>
+                    <div class="tl-card">
+                      <div class="tl-head">
+                        <span class="tl-title">${esc(item.subject || activityLabel(item.type))}</span>
+                        <span class="tl-meta">${activityLabel(item.type)} · ${formatDate(item.occurred_at)} · ${esc(item.profiles?.full_name || '')}</span>
+                      </div>
+                      ${item.body ? `<div class="tl-body text-muted">${esc(item.body)}</div>` : ''}
+                    </div>
+                  </div>`
+                } else {
+                  const over = isOverdue(item.due_date) && item.status === 'open'
+                  return `
+                  <div class="timeline-item">
+                    <div class="timeline-dot td-task" style="cursor:${item.status==='open'?'pointer':'default'}" data-task-id="${item.id}" onclick="document.dispatchEvent(new CustomEvent('completeTask',{detail:'${item.id}'}))">
+                      ${item.status==='gedaan' ? '✓' : '☑'}
+                    </div>
+                    <div class="tl-card">
+                      <div class="tl-head">
+                        <span class="tl-title ${item.status === 'gedaan' ? 'text-muted' : ''}" style="${item.status === 'gedaan' ? 'text-decoration:line-through' : ''}">${esc(item.title)}</span>
+                        <div style="display:flex;align-items:center;gap:6px">
+                          ${item.is_recurring ? '<span style="font-size:10px;background:#e8f8f2;color:#007a4d;padding:2px 6px;border-radius:10px;font-weight:600">🔄 Terugkerend</span>' : ''}
+                          <span class="tl-meta ${over ? 'text-danger' : ''}">${item.status === 'gedaan' ? '✓ Gedaan' : over ? '⚠ Verlopen' : formatDate(item.due_date)}</span>
+                        </div>
+                      </div>
+                      ${item.profiles ? `<div class="tl-body text-muted">${esc(item.profiles.full_name)}</div>` : ''}
+                    </div>
+                  </div>`
+                }
+              }).join('')}
+            </div>` : '<p class="text-muted" style="font-size:13px">Nog geen activiteiten of taken.</p>'}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Modals ─────────────────────────────────────────────────────────── -->
+
+    <!-- Edit Company -->
+    <div class="modal-overlay" id="edit-company-modal">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header"><h3>Bedrijf bewerken</h3><button class="btn btn-icon close-btn" id="ec-close">✕</button></div>
+        <div class="modal-body">
+          <div class="field-row">
+            <div class="field"><label>Naam *</label><input id="ec-name"/></div>
+            <div class="field"><label>Status</label>
+              <select id="ec-status">
+                <option value="suspect">Suspect</option><option value="prospect">Prospect</option>
+                <option value="klant">Klant</option><option value="inactief">Inactief</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label>Accountverantwoordelijke</label>
+            <select id="ec-owner">
+              <option value="">Niet toegewezen</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>KvK-nummer</label><input id="ec-kvk"/></div>
+            <div class="field"><label>Sector</label><input id="ec-sector"/></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Adres</label><input id="ec-address"/></div>
+            <div class="field"><label>Postcode</label><input id="ec-postal"/></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Stad</label><input id="ec-city"/></div>
+            <div class="field"><label>Website</label><input id="ec-website" type="url" placeholder="https://"/></div>
+          </div>
+          <div class="field">
+            <label>Labels</label>
+            <div id="ec-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Potentie</label>
+              <select id="ec-potentie">
+                <option value="">Niet ingesteld</option>
+                <option value="klein">Klein</option>
+                <option value="middel">Middel</option>
+                <option value="groot">Groot</option>
+                <option value="strategisch">⭐ Strategisch</option>
+              </select>
+            </div>
+            <div class="field"><label>Opvolgfrequentie (dagen)</label>
+              <input id="ec-opvolg" type="number" min="1" max="365" placeholder="Bijv. 14"/>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Afhankelijkheid</label>
+              <select id="ec-relation">
+                <option value="">Geen</option>
+                <option value="joint_venture">🤝 Joint venture</option>
+                <option value="strategisch_partner">🔗 Strategisch partner</option>
+              </select>
+            </div>
+            <div class="field-inline" style="align-items:flex-end;padding-bottom:2px">
+              <input type="checkbox" id="ec-marketing"/>
+              <label for="ec-marketing">Marketing</label>
+            </div>
+          </div>
+          <div class="field" id="ec-relation-note-wrap" style="display:none">
+            <label>Toelichting afhankelijkheid</label>
+            <textarea id="ec-relation-note" placeholder="Bijv. NRG heeft 30% belang — niet benaderen zonder afstemming directie" style="min-height:70px"></textarea>
+          </div>
+          <div class="field"><label>Notities</label><textarea id="ec-notes"></textarea></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="ec-cancel">Annuleren</button>
+          <button class="btn btn-primary" id="ec-save">Opslaan</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contact -->
+    <div class="modal-overlay" id="contact-modal">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header"><h3 id="contact-modal-title">Contactpersoon</h3><button class="btn btn-icon close-btn" id="c-close">✕</button></div>
+        <div class="modal-body">
+          <div class="field-row">
+            <div class="field"><label>Voornaam *</label><input id="c-first"/></div>
+            <div class="field"><label>Achternaam *</label><input id="c-last"/></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Functie</label><input id="c-title"/></div>
+            <div class="field"><label>Afdeling</label><input id="c-dept"/></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>E-mail</label><input id="c-email" type="email"/></div>
+            <div class="field"><label>Telefoon</label><input id="c-phone" type="tel"/></div>
+          </div>
+          <div class="field"><label>LinkedIn URL</label><input id="c-linkedin" type="url" placeholder="https://linkedin.com/in/..."/></div>
+          <div class="field-inline"><input type="checkbox" id="c-primary"/><label for="c-primary">Primaire contactpersoon</label></div>
+          <div class="field"><label>Notities</label><textarea id="c-notes"></textarea></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="c-cancel">Annuleren</button>
+          <button class="btn btn-primary" id="c-save">Opslaan</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deal -->
+    <div class="modal-overlay" id="deal-modal">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header"><h3 id="deal-modal-title">Deal</h3><button class="btn btn-icon close-btn" id="d-close">✕</button></div>
+        <div class="modal-body">
+          <div class="field"><label>Titel *</label><input id="d-title"/></div>
+          <div class="field-row">
+            <div class="field"><label>Fase</label>
+              <select id="d-stage">
+                <option value="lead">Lead</option><option value="gekwalificeerd">Gekwalificeerd</option>
+                <option value="offerte">Offerte</option><option value="onderhandeling">Onderhandeling</option>
+                <option value="gewonnen">Gewonnen</option><option value="verloren">Verloren</option>
+              </select>
+            </div>
+            <div class="field"><label>Waarde (€)</label><input id="d-value" type="number" min="0"/></div>
+          </div>
+          <div class="field"><label>Verwachte sluitdatum</label><input id="d-close-date" type="date"/></div>
+          <div class="field"><label>Notities</label><textarea id="d-notes"></textarea></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="d-cancel">Annuleren</button>
+          <button class="btn btn-primary" id="d-save">Opslaan</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Task -->
+    <div class="modal-overlay" id="task-modal">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header"><h3>Taak toevoegen</h3><button class="btn btn-icon close-btn" id="t-close">✕</button></div>
+        <div class="modal-body">
+          <div class="field"><label>Omschrijving *</label><input id="t-title"/></div>
+          <div class="field-row">
+            <div class="field"><label>Deadline</label><input id="t-due" type="date"/></div>
+            <div class="field"><label>Toegewezen aan</label><select id="t-assigned"></select></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="t-cancel">Annuleren</button>
+          <button class="btn btn-primary" id="t-save">Opslaan</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attachment -->
+    <div class="modal-overlay" id="att-modal">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header"><h3>Bijlage uploaden</h3><button class="btn btn-icon close-btn" id="att-close">✕</button></div>
+        <div class="modal-body">
+          <div class="upload-zone" id="upload-zone">
+            <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <p>Klik of sleep bestand</p><span>PDF of .eml · max 20MB</span>
+            <input type="file" id="file-input" accept=".pdf,.eml,message/rfc822" style="display:none"/>
+          </div>
+          <div id="upload-status" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-secondary" id="att-close2">Sluiten</button></div>
+      </div>
+    </div>
+  `
+
+  bindEvents()
+}
+
+function bindEvents() {
+  const { company, contacts, deals, allTags, allUsers } = data
+  let editContactId = null, editDealId = null
+
+  // Lokale datum helper (vermijdt UTC tijdzone verschuiving)
+  function toLocalDate(d) {
+    const y = d.getFullYear()
+    const m = String(d.getMonth()+1).padStart(2,'0')
+    const dd = String(d.getDate()).padStart(2,'0')
+    return `${y}-${m}-${dd}`
+  }
+  function localDatePlus(days) {
+    const d = new Date(); d.setDate(d.getDate()+days); return toLocalDate(d)
+  }
+
+  const selTags = new Set(data.ctags.map(ct => ct.tag_id))
+
+  // Close modals
+  const closes = { 'ec-close': 'edit-company-modal', 'ec-cancel': 'edit-company-modal', 'c-close': 'contact-modal', 'c-cancel': 'contact-modal', 'd-close': 'deal-modal', 'd-cancel': 'deal-modal', 't-close': 'task-modal', 't-cancel': 'task-modal', 'att-close': 'att-modal', 'att-close2': 'att-modal' }
+  Object.entries(closes).forEach(([btn, modal]) => document.getElementById(btn)?.addEventListener('click', () => hideModal(modal)))
+
+  // Edit company
+  const openEditCompany = () => {
+    document.getElementById('ec-name').value    = company.name || ''
+    document.getElementById('ec-status').value  = company.status || 'suspect'
+    document.getElementById('ec-kvk').value     = company.kvk_number || ''
+    document.getElementById('ec-sector').value  = company.sector || ''
+    document.getElementById('ec-address').value = company.address || ''
+    document.getElementById('ec-postal').value  = company.postal_code || ''
+    document.getElementById('ec-city').value    = company.city || ''
+    document.getElementById('ec-website').value = company.website || ''
+    document.getElementById('ec-notes').value   = company.notes || ''
+    document.getElementById('ec-marketing').checked = !!company.marketing_opt_in
+    // Vul owner dropdown
+    const ecOwner = document.getElementById('ec-owner')
+    ecOwner.innerHTML = '<option value="">Niet toegewezen</option>'
+    data.allUsers.forEach(u => {
+      const o = document.createElement('option')
+      o.value = u.id; o.textContent = u.full_name
+      if (u.id === company.owner_id) o.selected = true
+      ecOwner.appendChild(o)
+    })
+    document.getElementById('ec-potentie').value  = company.potentie || ''
+    document.getElementById('ec-opvolg').value    = company.opvolgfrequentie || ''
+    document.getElementById('ec-relation').value = company.relation_type || ''
+    document.getElementById('ec-relation-note').value = company.relation_note || ''
+    document.getElementById('ec-relation-note-wrap').style.display = company.relation_type ? 'block' : 'none'
+    renderEcTags()
+    showModal('edit-company-modal')
+  }
+  document.getElementById('edit-btn')?.addEventListener('click', openEditCompany)
+
+  // Topbar actie knop — opent actie modal met bedrijf al ingevuld
+  document.getElementById('topbar-actie-btn')?.addEventListener('click', () => {
+    if (window._openActieVoorBedrijf) {
+      window._openActieVoorBedrijf(cid, company.name)
+    } else {
+      document.getElementById('actie-modal')?.classList.add('open')
+    }
+  })
+  document.getElementById('edit-company-btn')?.addEventListener('click', openEditCompany)
+  document.getElementById('ec-relation')?.addEventListener('change', function() {
+    document.getElementById('ec-relation-note-wrap').style.display = this.value ? 'block' : 'none'
+  })
+
+  function renderEcTags() {
+    const wrap = document.getElementById('ec-tags')
+    wrap.innerHTML = allTags.map(t => `<span class="tag tag-${t.type} tag-toggle ${selTags.has(t.id) ? 'selected' : ''}" data-id="${t.id}" style="cursor:pointer">${esc(t.name)}</span>`).join('')
+    wrap.querySelectorAll('.tag-toggle').forEach(el => el.addEventListener('click', () => { selTags.has(el.dataset.id) ? selTags.delete(el.dataset.id) : selTags.add(el.dataset.id); renderEcTags() }))
+  }
+
+  document.getElementById('ec-save')?.addEventListener('click', async () => {
+    const name = document.getElementById('ec-name').value.trim()
+    if (!name) return
+    await supabase.from('companies').update({
+      name, status: document.getElementById('ec-status').value,
+      kvk_number: document.getElementById('ec-kvk').value.trim() || null,
+      sector: document.getElementById('ec-sector').value.trim() || null,
+      address: document.getElementById('ec-address').value.trim() || null,
+      postal_code: document.getElementById('ec-postal').value.trim() || null,
+      city: document.getElementById('ec-city').value.trim() || null,
+      website: document.getElementById('ec-website').value.trim() || null,
+      notes: document.getElementById('ec-notes').value.trim() || null,
+      marketing_opt_in: document.getElementById('ec-marketing').checked,
+      owner_id: document.getElementById('ec-owner').value || null,
+      potentie: document.getElementById('ec-potentie').value || null,
+      opvolgfrequentie: parseInt(document.getElementById('ec-opvolg').value) || null,
+      relation_type: document.getElementById('ec-relation').value || null,
+      relation_note: document.getElementById('ec-relation-note').value.trim() || null
+    }).eq('id', cid)
+    await supabase.from('company_tags').delete().eq('company_id', cid)
+    if (selTags.size) await supabase.from('company_tags').insert([...selTags].map(tid => ({ company_id: cid, tag_id: tid })))
+
+    // Terugkerende opvolgtaak: aanmaken als freq + owner ingesteld en nog geen open terugkerende taak bestaat
+    const freq = parseInt(document.getElementById('ec-opvolg').value) || null
+    const owner = document.getElementById('ec-owner').value || null
+    if (freq && owner) {
+      const { data: existing } = await supabase.from('tasks')
+        .select('id').eq('company_id', cid).eq('is_recurring', true).eq('status', 'open').maybeSingle()
+      if (!existing) {
+          await supabase.from('tasks').insert({
+          company_id:    cid,
+          title:         'Opvolging — ' + document.getElementById('ec-name').value.trim(),
+          due_date:      localDatePlus(freq),
+          assigned_to:   owner,
+          created_by:    uid,
+          is_recurring:  true,
+          recurring_days: freq,
+          status:        'open'
+        })
+      }
+    }
+
+    hideModal('edit-company-modal')
+    await load()
+  })
+
+  // Contacts
+  document.getElementById('add-contact-btn')?.addEventListener('click', () => {
+    editContactId = null
+    document.getElementById('contact-modal-title').textContent = 'Contactpersoon toevoegen'
+    ;['c-first','c-last','c-title','c-dept','c-email','c-phone','c-linkedin','c-notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value = '' })
+    document.getElementById('c-primary').checked = false
+    showModal('contact-modal')
+  })
+  document.querySelectorAll('.edit-contact-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      editContactId = btn.dataset.id
+      const c = contacts.find(x => x.id === editContactId)
+      if (!c) return
+      document.getElementById('contact-modal-title').textContent = 'Contactpersoon bewerken'
+      document.getElementById('c-first').value   = c.first_name || ''
+      document.getElementById('c-last').value    = c.last_name || ''
+      document.getElementById('c-title').value   = c.job_title || ''
+      document.getElementById('c-dept').value    = c.department || ''
+      document.getElementById('c-email').value   = c.email || ''
+      document.getElementById('c-phone').value   = c.phone || ''
+      document.getElementById('c-linkedin').value= c.linkedin_url || ''
+      document.getElementById('c-notes').value   = c.notes || ''
+      document.getElementById('c-primary').checked = !!c.is_primary
+      showModal('contact-modal')
+    })
+  })
+  document.getElementById('c-save')?.addEventListener('click', async () => {
+    const first = document.getElementById('c-first').value.trim()
+    const last  = document.getElementById('c-last').value.trim()
+    if (!first || !last) return
+    const payload = { company_id: cid, first_name: first, last_name: last,
+      job_title: document.getElementById('c-title').value.trim() || null,
+      department: document.getElementById('c-dept').value.trim() || null,
+      email: document.getElementById('c-email').value.trim() || null,
+      phone: document.getElementById('c-phone').value.trim() || null,
+      linkedin_url: document.getElementById('c-linkedin').value.trim() || null,
+      notes: document.getElementById('c-notes').value.trim() || null,
+      is_primary: document.getElementById('c-primary').checked }
+    if (editContactId) await supabase.from('contacts').update(payload).eq('id', editContactId)
+    else await supabase.from('contacts').insert(payload)
+    hideModal('contact-modal')
+    await load()
+  })
+
+  // Deals
+  document.getElementById('add-deal-btn')?.addEventListener('click', () => {
+    editDealId = null
+    document.getElementById('deal-modal-title').textContent = 'Deal toevoegen'
+    ;['d-title','d-value','d-close-date','d-notes'].forEach(id => { const el=document.getElementById(id); if(el) el.value='' })
+    document.getElementById('d-stage').value = 'lead'
+    showModal('deal-modal')
+  })
+  document.querySelectorAll('.edit-deal-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      editDealId = btn.dataset.id
+      const d = deals.find(x => x.id === editDealId)
+      if (!d) return
+      document.getElementById('deal-modal-title').textContent = 'Deal bewerken'
+      document.getElementById('d-title').value      = d.title || ''
+      document.getElementById('d-stage').value      = d.stage || 'lead'
+      document.getElementById('d-value').value      = d.value || ''
+      document.getElementById('d-close-date').value = d.expected_close || ''
+      document.getElementById('d-notes').value      = d.notes || ''
+      showModal('deal-modal')
+    })
+  })
+  document.getElementById('d-save')?.addEventListener('click', async () => {
+    const title = document.getElementById('d-title').value.trim()
+    if (!title) return
+    const newStage = document.getElementById('d-stage').value
+    const payload = { company_id: cid, title, stage: newStage,
+      value: parseFloat(document.getElementById('d-value').value) || null,
+      expected_close: document.getElementById('d-close-date').value || null,
+      notes: document.getElementById('d-notes').value.trim() || null, owner_id: uid }
+    if (editDealId) await supabase.from('deals').update(payload).eq('id', editDealId)
+    else await supabase.from('deals').insert(payload)
+    if (newStage === 'gewonnen') await supabase.from('companies').update({ status: 'klant' }).eq('id', cid).in('status', ['suspect','prospect'])
+    hideModal('deal-modal')
+    await load()
+  })
+
+  // Tasks
+  document.getElementById('add-task-btn')?.addEventListener('click', () => {
+    const sel = document.getElementById('t-assigned')
+    sel.innerHTML = '<option value="">Niemand</option>'
+    allUsers.forEach(u => { const o = document.createElement('option'); o.value=u.id; o.textContent=u.full_name; if(u.id===uid) o.selected=true; sel.appendChild(o) })
+    document.getElementById('t-title').value = ''
+    document.getElementById('t-due').value   = ''
+    showModal('task-modal')
+  })
+  document.getElementById('t-save')?.addEventListener('click', async () => {
+    const title = document.getElementById('t-title').value.trim()
+    if (!title) return
+    await supabase.from('tasks').insert({ company_id: cid, title,
+      due_date: document.getElementById('t-due').value || null,
+      assigned_to: document.getElementById('t-assigned').value || null, created_by: uid })
+    hideModal('task-modal')
+    await load()
+  })
+
+  // Actie quick button
+  document.getElementById('add-actie-btn')?.addEventListener('click', () => {
+    if (window._openActieVoorBedrijf) {
+      window._openActieVoorBedrijf(cid, company.name)
+    } else {
+      document.getElementById('actie-modal')?.classList.add('open')
+    }
+  })
+
+  // Attachments
+  document.getElementById('add-att-btn')?.addEventListener('click', () => showModal('att-modal'))
+  const zone = document.getElementById('upload-zone')
+  const finp = document.getElementById('file-input')
+  zone?.addEventListener('click', () => finp.click())
+  zone?.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over') })
+  zone?.addEventListener('dragleave', () => zone.classList.remove('drag-over'))
+  zone?.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag-over'); if(e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]) })
+  finp?.addEventListener('change', () => { if(finp.files[0]) uploadFile(finp.files[0]) })
+
+  async function uploadFile(file) {
+    const st = document.getElementById('upload-status')
+    st.textContent = 'Uploaden...'
+    const path = `${cid}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`
+    const { error } = await supabase.storage.from('crm-attachments').upload(path, file)
+    if (error) { st.textContent = 'Fout: ' + error.message; return }
+    await supabase.from('attachments').insert({ company_id: cid, file_name: file.name, file_type: file.type, file_size: file.size, storage_path: path, uploaded_by: uid })
+    st.textContent = '✓ ' + file.name
+    await load()
+  }
+  document.querySelectorAll('.dl-btn').forEach(btn => btn.addEventListener('click', async () => {
+    const { data } = await supabase.storage.from('crm-attachments').createSignedUrl(btn.dataset.path, 60)
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+  }))
+  document.querySelectorAll('.del-att-btn').forEach(btn => btn.addEventListener('click', async () => {
+    if (!confirm('Bijlage verwijderen?')) return
+    await supabase.storage.from('crm-attachments').remove([btn.dataset.path])
+    await supabase.from('attachments').delete().eq('id', btn.dataset.id)
+    await load()
+  }))
+
+  // Owner select inline op info-grid
+  const ownerSel = document.getElementById('owner-select')
+  if (ownerSel) {
+    ownerSel.addEventListener('change', async () => {
+      await supabase.from('companies').update({ owner_id: ownerSel.value || null }).eq('id', cid)
+      // Visuele feedback
+      ownerSel.style.color = 'var(--green)'
+      setTimeout(() => { ownerSel.style.color = '' }, 1500)
+    })
+  }
+
+  // Taak afronden vanuit tijdlijn
+  document.addEventListener('completeTask', async (e) => {
+    const taskId = e.detail
+    const task = data.tasks.find(t => t.id === taskId)
+    if (!task || task.status === 'gedaan') return
+
+    await supabase.from('tasks').update({ status: 'gedaan' }).eq('id', taskId)
+
+    // Terugkerende taak: nieuwe aanmaken
+    if (task.is_recurring && task.recurring_days) {
+      const nextDue = new Date()
+      nextDue.setDate(nextDue.getDate() + task.recurring_days)
+      await supabase.from('tasks').insert({
+        company_id:    task.company_id,
+        title:         task.title,
+        due_date:      nextDue.toISOString().slice(0, 10),
+        assigned_to:   task.assigned_to,
+        created_by:    uid,
+        is_recurring:  true,
+        recurring_days: task.recurring_days,
+        status:        'open'
+      })
+    }
+    await load()
+  }, { once: false })
+
+  // Note edit / delete
+  document.querySelectorAll('.note-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id
+      document.getElementById('note-text-' + id).style.display = 'none'
+      document.getElementById('note-edit-' + id).style.display = 'block'
+      const area = document.querySelector('.note-edit-area[data-id="' + id + '"]')
+      if (area) { area.focus(); area.selectionStart = area.value.length }
+    })
+  })
+  document.querySelectorAll('.note-edit-cancel').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id
+      document.getElementById('note-text-' + id).style.display = 'block'
+      document.getElementById('note-edit-' + id).style.display = 'none'
+    })
+  })
+  document.querySelectorAll('.note-edit-save').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id   = btn.dataset.id
+      const area = document.querySelector('.note-edit-area[data-id="' + id + '"]')
+      const text = area?.value.trim()
+      if (!text) return
+      btn.disabled = true; btn.textContent = '...'
+      await supabase.from('company_notes').update({ text }).eq('id', id)
+      await load()
+    })
+  })
+  document.querySelectorAll('.note-delete-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Notitie verwijderen?')) return
+      await supabase.from('company_notes').delete().eq('id', btn.dataset.id)
+      await load()
+    })
+  })
+
+  // Note dictation
+  ;(function() {
+    const btn    = document.getElementById('note-dictate-btn')
+    const lbl    = document.getElementById('note-dictate-label')
+    const status = document.getElementById('note-dictate-status')
+    const area   = document.getElementById('note-input')
+    if (!btn) return
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) { btn.style.opacity='.4'; return }
+    let rec=null, listening=false, raw=''
+
+    function setUI(on) {
+      listening=on; btn.classList.toggle('listening',on); lbl.textContent=on?'Stop':'Inspreken'
+      if(on){ status.className='dictate-status show listening'; status.textContent='🎙 Aan het luisteren...' }
+    }
+
+    async function clean(text) {
+      status.className='dictate-status show processing'; status.textContent='✨ Verwerken...'
+      try {
+        const resp = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':window._ANTHROPIC_KEY||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:'Zet deze gesproken tekst om naar een zakelijke CRM-notitie in het Nederlands. Derde persoon, interpunctie correct, max 2-3 zinnen. Alleen de notitie, geen uitleg.\n\nTekst: "'+text+'"'}]})})
+        const d = await resp.json()
+        const t = d.content?.[0]?.text?.trim()
+        area.value = t || text
+        status.className='dictate-status show done'; status.textContent='✓ Klaar — pas aan en sla op'
+        setTimeout(()=>{status.className='dictate-status';status.textContent=''},3000)
+      } catch { area.value=text; status.className='dictate-status'; status.textContent='' }
+    }
+
+    btn.addEventListener('click',()=>{
+      if(listening){rec?.stop();return}
+      raw=''; rec=new SR(); rec.lang='nl-NL'; rec.continuous=true; rec.interimResults=true
+      rec.onstart=()=>setUI(true)
+      rec.onend=async()=>{ setUI(false); if(raw.trim()) await clean(raw.trim()); else{status.className='dictate-status';status.textContent=''} }
+      rec.onerror=e=>{ setUI(false); if(e.error==='not-allowed'){status.className='dictate-status show listening';status.textContent='⚠ Microfoon geblokkeerd'} }
+      rec.onresult=e=>{ let interim=''; for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)raw+=e.results[i][0].transcript+' ';else interim=e.results[i][0].transcript} status.textContent='🎙 '+(raw+interim).trim(); area.value=raw+interim }
+      rec.start()
+    })
+  })()
+
+  // Notes
+  document.getElementById('note-save-btn')?.addEventListener('click', async () => {
+    const text = document.getElementById('note-input').value.trim()
+    if (!text) return
+    const btn = document.getElementById('note-save-btn')
+    btn.disabled = true
+    await supabase.from('company_notes').insert({ company_id: cid, text, created_by: uid })
+    document.getElementById('note-input').value = ''
+    btn.disabled = false
+    await load()
+  })
+}
+
+await load()
+</script>
+</body>
+</html>
