@@ -1,7 +1,18 @@
-const { createClient } = require('@supabase/supabase-js')
+// Geen npm dependencies - gebruikt fetch direct naar Supabase REST API
 
 const SUPABASE_URL  = 'https://lvpyecqapzqqakokiqgp.supabase.co'
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2cHllY3FhcHpxcWFrb2tpcWdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwMjcyMzUsImV4cCI6MjA5MDYwMzIzNX0.d0oz1eZ0In3nB8dOsyMXIz9FcFlNTrGjZBKOaFmDvFc'
+
+async function sbFetch(path) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      'apikey': SUPABASE_ANON,
+      'Authorization': `Bearer ${SUPABASE_ANON}`,
+      'Accept': 'application/json'
+    }
+  })
+  return res.json()
+}
 
 function toIcalDate(dateStr) {
   const d = new Date(dateStr)
@@ -13,7 +24,6 @@ function escIcal(str) {
 }
 
 function foldLine(line) {
-  // iCal spec: lines max 75 chars, fold with CRLF + space
   if (line.length <= 75) return line
   let result = ''
   while (line.length > 75) {
@@ -23,54 +33,22 @@ function foldLine(line) {
   return result + line
 }
 
-const TYPE_LABELS = {
-  bel: 'Belnotitie',
-  mail: 'E-mail',
-  meeting: 'Meeting',
-  notitie: 'Notitie'
-}
+const TYPE_LABELS = { bel: 'Belnotitie', mail: 'E-mail', meeting: 'Meeting', notitie: 'Notitie' }
 
 exports.handler = async (event) => {
-  // Optional: filter by user token from query param
   const userId = event.queryStringParameters?.user || null
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON)
+  let actFilter = 'order=occurred_at.desc&limit=500&select=id,type,subject,body,occurred_at,companies(name),profiles(full_name)'
+  if (userId) actFilter += `&logged_by=eq.${userId}`
 
-  let query = supabase
-    .from('activities')
-    .select('id, type, subject, body, occurred_at, companies(name), profiles(full_name)')
-    .order('occurred_at', { ascending: false })
-    .limit(500)
+  let taskFilter = 'status=eq.open&due_date=not.is.null&order=due_date.asc&limit=200&select=id,title,due_date,companies(name),profiles!tasks_assigned_to_fkey(full_name)'
+  if (userId) taskFilter += `&assigned_to=eq.${userId}`
 
-  if (userId) {
-    query = query.eq('logged_by', userId)
-  }
+  const [activities, tasks] = await Promise.all([
+    sbFetch(`activities?${actFilter}`),
+    sbFetch(`tasks?${taskFilter}`)
+  ])
 
-  const { data: activities, error } = await query
-
-  if (error) {
-    return {
-      statusCode: 500,
-      body: 'Error fetching activities: ' + error.message
-    }
-  }
-
-  // Also fetch tasks with due dates
-  let taskQuery = supabase
-    .from('tasks')
-    .select('id, title, due_date, status, companies(name), profiles!tasks_assigned_to_fkey(full_name)')
-    .eq('status', 'open')
-    .not('due_date', 'is', null)
-    .order('due_date')
-    .limit(200)
-
-  if (userId) {
-    taskQuery = taskQuery.eq('assigned_to', userId)
-  }
-
-  const { data: tasks } = await taskQuery
-
-  // Build iCal
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -81,8 +59,7 @@ exports.handler = async (event) => {
     'METHOD:PUBLISH',
   ]
 
-  // Activities as VEVENT
-  for (const a of (activities || [])) {
+  for (const a of (Array.isArray(activities) ? activities : [])) {
     if (!a.occurred_at) continue
     const start = toIcalDate(a.occurred_at)
     const typeLabel = TYPE_LABELS[a.type] || a.type
@@ -103,17 +80,14 @@ exports.handler = async (event) => {
     lines.push('END:VEVENT')
   }
 
-  // Tasks as VTODO (shown in some calendar apps) + VEVENT on due date
-  for (const t of (tasks || [])) {
+  for (const t of (Array.isArray(tasks) ? tasks : [])) {
     if (!t.due_date) continue
-    const dueDate = t.due_date.replace(/-/g, '') + 'T090000Z'
     const summary = escIcal(`📌 ${t.title} — ${t.companies?.name || ''}`)
     const desc = escIcal([
       t.companies?.name ? `Bedrijf: ${t.companies.name}` : '',
       t.profiles?.full_name ? `Toegewezen aan: ${t.profiles.full_name}` : ''
     ].filter(Boolean).join('\\n'))
 
-    // VEVENT for the due date (all-day)
     lines.push('BEGIN:VEVENT')
     lines.push(foldLine(`UID:task-${t.id}@nrgcrm`))
     lines.push(foldLine(`DTSTART;VALUE=DATE:${t.due_date.replace(/-/g, '')}`))
@@ -121,7 +95,7 @@ exports.handler = async (event) => {
     lines.push(foldLine(`SUMMARY:${summary}`))
     if (desc) lines.push(foldLine(`DESCRIPTION:${desc}`))
     lines.push('CATEGORIES:Taak')
-    lines.push(`STATUS:NEEDS-ACTION`)
+    lines.push('STATUS:NEEDS-ACTION')
     lines.push('END:VEVENT')
   }
 
