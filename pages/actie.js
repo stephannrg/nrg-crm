@@ -431,13 +431,10 @@ Gesproken tekst: "${text}"
 Geef ALLEEN het JSON object terug, geen uitleg, geen markdown, geen backticks.`
 
       try {
-        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        const resp = await fetch('/.netlify/functions/transcribe', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': window._ANTHROPIC_KEY || '',
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true'
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             model: 'claude-haiku-4-5-20251001',
