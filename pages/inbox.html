@@ -24,4 +24,142 @@
     .inbox-subject { font-size: 13px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .inbox-summary { font-size: 13px; color: var(--text); margin-top: 8px; line-height: 1.5; }
     .inbox-match { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; padding: 4px 10px; border-radius: 20px; font-weight: 500; }
-    .match-hoog { background: #
+    .match-hoog { background: #d1fae5; color: #065f46; }
+    .match-middel { background: #fef3c7; color: #92400e; }
+    .match-laag { background: #fee2e2; color: #991b1b; }
+    .match-onbekend { background: var(--bg-muted); color: var(--text-muted); }
+    .inbox-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .inbox-date { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+    .badge-type { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--teal-l); color: var(--teal-d); font-weight: 500; margin-left: 6px; }
+    .inbox-processed { opacity: 0.45; }
+    .filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+<script type="module">
+  import { initShell } from '../js/shell.js'
+  import { supabase } from '../js/supabase.js'
+  import { esc } from '../js/utils.js'
+
+  const ctx = await initShell('inbox')
+  if (!ctx) throw new Error()
+
+  const main = document.getElementById('main-content')
+  main.innerHTML = `
+    <div class="topbar"><h1>E-mail inbox</h1></div>
+    <div class="page-content">
+      <div class="filter-bar">
+        <button class="btn btn-primary" data-f="nieuw">Nieuw</button>
+        <button class="btn btn-secondary" data-f="alle">Alle</button>
+        <button class="btn btn-secondary" data-f="verwerkt">Verwerkt</button>
+      </div>
+      <div class="card">
+        <div class="card-body" id="inbox-body">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+  `
+
+  let emails = [], filter = 'nieuw'
+
+  async function load() {
+    const { data } = await supabase
+      .from('email_inbox')
+      .select('*')
+      .order('received_at', { ascending: false })
+      .limit(100)
+    emails = data || []
+    render()
+  }
+
+  function render() {
+    const filtered = filter === 'nieuw' ? emails.filter(e => !e.verwerkt)
+      : filter === 'verwerkt' ? emails.filter(e => e.verwerkt)
+      : emails
+
+    const body = document.getElementById('inbox-body')
+    if (!filtered.length) {
+      body.innerHTML = '<div class="empty-state"><p>Geen e-mails.</p></div>'
+      return
+    }
+
+    body.innerHTML = filtered.map(e => {
+      const z = e.match_zekerheid || 'onbekend'
+      const zl = { hoog: 'Hoge zekerheid', middel: 'Gemiddelde zekerheid', laag: 'Lage zekerheid', onbekend: 'Onbekend' }[z] || z
+      const tl = { bedrijf: 'Bedrijf', contactpersoon: 'Contact', nieuw_contact: 'Nieuw contact', nieuw_bedrijf: 'Nieuw bedrijf', onbekend: 'Onbekend' }[e.match_type] || '?'
+      return `
+        <div class="inbox-item ${e.verwerkt ? 'inbox-processed' : ''}" data-id="${e.id}">
+          <div class="inbox-meta">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+              <div class="inbox-from">${esc(e.from_email || '—')}</div>
+              <div class="inbox-date">${e.received_at ? new Date(e.received_at).toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
+            </div>
+            <div class="inbox-subject">${esc(e.subject || '(geen onderwerp)')}</div>
+            ${e.samenvatting ? `<div class="inbox-summary">${esc(e.samenvatting)}</div>` : ''}
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:8px">
+              ${e.match_naam
+                ? `<span class="inbox-match match-${z}">${esc(e.match_naam)}<span class="badge-type">${tl}</span></span>
+                   <span style="font-size:12px;color:var(--text-muted)">${zl}</span>`
+                : `<span class="inbox-match match-onbekend">Geen match gevonden</span>`}
+            </div>
+            ${!e.verwerkt ? `
+              <div class="inbox-actions">
+                ${e.match_id ? `<button class="btn btn-primary btn-sm" data-action="goedkeuren" data-id="${e.id}" data-match-id="${e.match_id}" data-match-type="${e.match_type}">✓ Koppelen als activiteit</button>` : ''}
+                ${e.match_type === 'nieuw_bedrijf' ? `<button class="btn btn-secondary btn-sm" data-action="nieuw-bedrijf" data-id="${e.id}">+ Nieuw bedrijf</button>` : ''}
+                <button class="btn btn-secondary btn-sm" data-action="negeren" data-id="${e.id}">Negeren</button>
+              </div>
+            ` : `<div style="font-size:12px;color:var(--text-muted);margin-top:8px">✓ Verwerkt</div>`}
+          </div>
+        </div>`
+    }).join('')
+
+    body.querySelectorAll('[data-action="goedkeuren"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id
+        const email = emails.find(e => e.id === id)
+        if (!email) return
+        btn.disabled = true; btn.textContent = 'Bezig...'
+        const { error } = await supabase.from('activities').insert({
+          company_id: btn.dataset.matchType === 'bedrijf' ? btn.dataset.matchId : null,
+          type: 'mail',
+          subject: email.subject || '(geen onderwerp)',
+          body: email.samenvatting || email.raw_email?.slice(0, 500),
+          occurred_at: email.received_at,
+          logged_by: ctx.session.user.id
+        })
+        if (!error) {
+          await supabase.from('email_inbox').update({ verwerkt: true }).eq('id', id)
+          await load()
+        } else {
+          btn.disabled = false; btn.textContent = '✓ Koppelen als activiteit'
+          alert('Fout: ' + error.message)
+        }
+      })
+    })
+
+    body.querySelectorAll('[data-action="negeren"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await supabase.from('email_inbox').update({ verwerkt: true }).eq('id', btn.dataset.id)
+        await load()
+      })
+    })
+
+    body.querySelectorAll('[data-action="nieuw-bedrijf"]').forEach(btn => {
+      btn.addEventListener('click', () => { window.location.href = '/pages/klanten.html?nieuw=1' })
+    })
+  }
+
+  document.querySelectorAll('[data-f]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-f]').forEach(b => b.className = 'btn btn-secondary')
+      btn.className = 'btn btn-primary'
+      filter = btn.dataset.f
+      render()
+    })
+  })
+
+  await load()
+</script>
+</body>
+</html>
