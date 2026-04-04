@@ -273,16 +273,17 @@ export async function openNieuweActie(container) {
         <div class="suggestion-name">${esc(c.name)}</div>
         <div class="suggestion-sub">${[c.city, c.sector].filter(Boolean).map(esc).join(' · ') || 'Geen info'}</div>
       </div>`).join('')
-    // Positioneer dropdown op basis van zoekveld positie
+    // Portal pattern: verplaats suggestions naar body zodat modal overflow hem niet afknipt
     const searchEl = document.getElementById('actie-company-search')
+    if (searchEl && suggestions.parentElement !== document.body) {
+      document.body.appendChild(suggestions)
+    }
     if (searchEl) {
       const rect = searchEl.getBoundingClientRect()
-      suggestions.style.position = 'fixed'
-      suggestions.style.top = (rect.bottom + 4) + 'px'
-      suggestions.style.left = rect.left + 'px'
-      suggestions.style.width = rect.width + 'px'
+      suggestions.style.cssText = `display:block;position:fixed;top:${rect.bottom + 4}px;left:${rect.left}px;width:${rect.width}px;z-index:9999;background:#fff;border:1.5px solid #dde8e3;border-radius:14px;box-shadow:0 12px 40px rgba(0,36,52,.18);max-height:260px;overflow-y:auto;`
+    } else {
+      suggestions.style.display = 'block'
     }
-    suggestions.style.display = 'block'
     suggestions.querySelectorAll('.suggestion-item').forEach(el => {
       el.addEventListener('click', () => {
         selectedCompanyId = el.dataset.id
@@ -397,8 +398,9 @@ export async function openNieuweActie(container) {
     btn._inited = true
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) {
-      btn.style.opacity = '.4'; btn.title = 'Niet ondersteund in deze browser'
+    if (!SR || location.protocol !== 'https:') {
+      btn.style.opacity = '.4'
+      btn.title = !SR ? 'Niet ondersteund in deze browser' : 'Microfoon werkt alleen op HTTPS'
       return
     }
 
