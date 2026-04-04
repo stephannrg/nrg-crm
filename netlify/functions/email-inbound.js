@@ -14,9 +14,9 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { from, to, subject, rawEmail, receivedAt, attachments } = JSON.parse(event.body);
+    const { from, to, cc, subject, rawEmail, receivedAt, attachments } = JSON.parse(event.body);
 
-    // Haal alle profielen op
+    // Haal alle profielen op — afzender is altijd NRG medewerker
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, full_name, email, role')
@@ -35,10 +35,10 @@ exports.handler = async (event) => {
       .from('contacts')
       .select('id, name, email, company_id');
 
-    // Verwerk bijlagen — lees tekst, sla niet op
+    // Verwerk bijlagen
     let attachmentSummary = '';
     if (attachments && attachments.length > 0) {
-      const relevantAttachments = attachments
+      const relevant = attachments
         .filter(a => a.content_type && (
           a.content_type.includes('pdf') ||
           a.content_type.includes('word') ||
@@ -48,8 +48,8 @@ exports.handler = async (event) => {
         ))
         .slice(0, 3);
 
-      if (relevantAttachments.length > 0) {
-        attachmentSummary = '\n\nBijlagen:\n' + relevantAttachments.map(a =>
+      if (relevant.length > 0) {
+        attachmentSummary = '\n\nBijlagen:\n' + relevant.map(a =>
           `- ${a.filename} (${a.content_type}): ${a.text_preview || '(geen tekstinhoud)'}`.slice(0, 500)
         ).join('\n');
       }
@@ -57,24 +57,32 @@ exports.handler = async (event) => {
 
     const emailInhoud = (rawEmail?.slice(0, 3000) || '') + attachmentSummary;
 
-    // Extraheer domein uit to-adres voor betere matching
-    const toDomain = to ? to.split('@')[1]?.toLowerCase() : null;
-    const fromDomain = from ? from.split('@')[1]?.toLowerCase() : null;
+    // Geadresseerden zijn de klanten (TO + CC)
+    const geadresseerden = [to, cc].filter(Boolean).join(', ')
+    const geadresseerdenDomeinen = [to, cc]
+      .filter(Boolean)
+      .flatMap(addr => addr.split(',').map(a => a.trim()))
+      .map(addr => addr.split('@')[1]?.toLowerCase())
+      .filter(Boolean)
+      .filter(d => !['nrgsales.nl','nrggroup.nl','gmail.com','hotmail.com','outlook.com'].includes(d))
+      .join(', ')
 
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1500,
       messages: [{
         role: 'user',
-        content: `Analyseer deze zakelijke e-mail voor een CRM systeem en geef een JSON response.
+        content: `Analyseer deze zakelijke e-mail voor een CRM systeem.
 
-BELANGRIJKE INSTRUCTIES:
-- Kijk ook naar het TO adres (aan wie gestuurd) om het bedrijf te herkennen. Het domein van het TO adres kan overeenkomen met een bedrijfswebsite.
-- Kijk naar het FROM domein (${fromDomain}) en het TO domein (${toDomain}) om bedrijven te matchen.
-- Als het TO domein overeenkomt met de website van een bekend bedrijf, gebruik dat als match.
+CONTEXT:
+- De AFZENDER (${from}) is altijd een NRG medewerker — negeer de afzender voor bedrijfsmatching.
+- De GEADRESSEERDEN zijn de klanten: ${geadresseerden}
+- Externe domeinen van geadresseerden: ${geadresseerdenDomeinen || '(geen)'}
+- Match op basis van de geadresseerden en hun domeinen met bekende bedrijven/contacten.
 
 Geef een JSON response met:
-- samenvatting: heldere zakelijke samenvatting max 80 woorden
+- samenvatting: zakelijke samenvatting max 80 woorden. Vermeld expliciet aan wie de mail gestuurd is (naam/bedrijf als bekend).
+- geadresseerden: korte lijst van externe geadresseerden (buiten NRG)
 - bijlagen_samenvatting: korte beschrijving van relevante bijlagen (of null)
 - match_type: "bedrijf", "contactpersoon", "nieuw_contact", "nieuw_bedrijf", of "onbekend"
 - match_id: uuid van het gevonden bedrijf of contact (of null)
@@ -83,11 +91,12 @@ Geef een JSON response met:
 - suggestie_actie: "koppel_aan_klant", "maak_nieuwe_klant", of "geen_actie"
 - suggestie_toelichting: korte uitleg max 40 woorden
 
-Bekende bedrijven (inclusief website): ${JSON.stringify(companies?.slice(0, 50))}
+Bekende bedrijven (met website): ${JSON.stringify(companies?.slice(0, 50))}
 Bekende contacten: ${JSON.stringify(contacts?.slice(0, 50))}
 
-E-mail VAN: ${from} (domein: ${fromDomain})
-E-mail AAN: ${to} (domein: ${toDomain})
+Van: ${from}
+Aan: ${to || ''}
+CC: ${cc || ''}
 Onderwerp: ${subject}
 Inhoud: ${emailInhoud}
 
@@ -103,10 +112,12 @@ Geef ALLEEN een JSON object terug, geen andere tekst.`
       .insert({
         from_email: from,
         to_email: to,
+        cc_email: cc || null,
         subject: subject,
         received_at: receivedAt,
         raw_email: rawEmail?.slice(0, 10000),
         samenvatting: analysis.samenvatting,
+        geadresseerden: analysis.geadresseerden || null,
         bijlagen_samenvatting: analysis.bijlagen_samenvatting || null,
         match_type: analysis.match_type,
         match_id: analysis.match_id,
