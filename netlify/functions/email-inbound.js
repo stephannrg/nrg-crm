@@ -8,7 +8,6 @@ const supabase = createClient(
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// NRG interne domeinen — nooit als klant behandelen
 const NRG_DOMEINEN = ['nrgsales.nl', 'nrggroup.nl', 'nrg.nl'];
 
 function isNrgAdres(addr) {
@@ -36,14 +35,13 @@ exports.handler = async (event) => {
 
     const admin = profiles?.[0];
 
-    // Koppel nrggroup.nl adressen aan bekende gebruikers
+    // Koppel nrggroup.nl adressen aan bekende gebruikers voor assigned_to
     const alleAdressen = [
       ...extractAdressen(from),
       ...extractAdressen(to),
       ...extractAdressen(cc)
     ];
 
-    // Zoek de NRG medewerker in de thread — basis voor assigned_to
     const nrgAdressen = alleAdressen.filter(isNrgAdres);
     let assigned_to = admin?.id || null;
     for (const addr of nrgAdressen) {
@@ -51,14 +49,14 @@ exports.handler = async (event) => {
       if (profiel) { assigned_to = profiel.id; break; }
     }
 
-    // Externe adressen — dit zijn de klanten
-    const externeAdressen = alleAdressen.filter(addr => !isNrgAdres(addr))
-    const externeGeadresseerden = externeAdressen.join(', ')
+    // Externe adressen uit headers
+    const externeAdressen = alleAdressen.filter(addr => !isNrgAdres(addr));
+    const externeGeadresseerden = externeAdressen.join(', ');
     const externeDomeinen = [...new Set(
       externeAdressen
         .map(addr => addr.split('@')[1]?.toLowerCase())
         .filter(Boolean)
-    )].join(', ')
+    )].join(', ');
 
     // Haal bedrijven en contacten op
     const { data: companies } = await supabase
@@ -81,7 +79,6 @@ exports.handler = async (event) => {
           a.content_type.includes('text')
         ))
         .slice(0, 3);
-
       if (relevant.length > 0) {
         attachmentSummary = '\n\nBijlagen:\n' + relevant.map(a =>
           `- ${a.filename} (${a.content_type}): ${a.text_preview || '(geen tekstinhoud)'}`.slice(0, 500)
@@ -89,43 +86,44 @@ exports.handler = async (event) => {
       }
     }
 
-    // Volledige mail meegeven — geen harde limiet op 3000 tekens meer
     const emailInhoud = (rawEmail?.slice(0, 8000) || '') + attachmentSummary;
-
-    // NRG medewerkers in de thread (voor context)
     const nrgMedewerkers = nrgAdressen
       .map(addr => {
         const p = profiles?.find(p => p.email?.toLowerCase() === addr.toLowerCase());
         return p ? `${p.full_name} (${addr})` : addr;
       })
-      .join(', ')
+      .join(', ');
 
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1500,
       messages: [{
         role: 'user',
-        content: `Analyseer deze zakelijke e-mail voor een CRM systeem. Lees de VOLLEDIGE mail inclusief de hele thread.
+        content: `Analyseer deze zakelijke e-mail voor een CRM systeem. Lees de VOLLEDIGE mail inclusief de HELE THREAD — doorgestuurde mails en replies bevatten de originele context onderaan.
 
-REGELS:
-- NRG medewerkers in deze thread: ${nrgMedewerkers || '(onbekend)'}
-- Adressen op nrggroup.nl, nrgsales.nl of nrg.nl zijn ALTIJD NRG medewerkers — nooit als klant behandelen, nooit als nieuw bedrijf voorstellen.
-- De KLANTEN zijn uitsluitend de externe geadresseerden: ${externeGeadresseerden || '(geen externe geadresseerden gevonden)'}
-- Externe domeinen: ${externeDomeinen || '(geen)'}
-- Zoek ook in de INHOUD van de mail naar bedrijfsnamen en personen die als klant of contact relevant kunnen zijn.
-- Match externe domeinen met de website velden van bekende bedrijven (bijv. "electure.nl" → bedrijf met website "electure.nl").
-- Als er geen externe geadresseerden zijn maar wel bedrijven/personen worden GENOEMD in de mail body, gebruik die dan voor matching.
+ABSOLUTE REGELS:
+- Adressen op nrggroup.nl, nrgsales.nl of nrg.nl zijn ALTIJD NRG medewerkers. NOOIT als klant, NOOIT als nieuw bedrijf voorstellen. Stel NOOIT NRG Group voor als nieuw bedrijf.
+- NRG medewerkers in deze thread: ${nrgMedewerkers || '(zie mailinhoud)'}
+- Als de ENIGE betrokken partijen NRG medewerkers zijn → gebruik suggestie_actie "geen_actie", match_type "onbekend", en laat match_naam null.
+
+MATCHINGSINSTRUCTIES:
+- Kijk in de VOLLEDIGE mailthread (ook doorgestuurde/geciteerde berichten onderaan) naar externe personen, bedrijfsnamen en e-mailadressen.
+- Externe adressen in headers: ${externeGeadresseerden || '(geen — zoek dan in de mailbody/thread)'}
+- Externe domeinen: ${externeDomeinen || '(geen — zoek dan in de mailbody/thread)'}
+- Zoek actief in de mailinhoud naar: bedrijfsnamen, externe e-mailadressen, domeinnamen, contactpersonen.
+- Match domeinen met de website velden van bekende bedrijven (bijv. "electure.nl" → bedrijf met website "electure.nl").
+- Als een persoon of bedrijf GENOEMD wordt maar geen bekende match heeft → suggestie_actie "maak_nieuwe_klant".
 
 Geef een JSON response met:
-- samenvatting: heldere zakelijke samenvatting max 100 woorden. Vermeld wie (externe partij/persoon) erbij betrokken is en wat de kern van de mail is.
-- geadresseerden: externe geadresseerden en/of genoemde externe personen als string (of null)
+- samenvatting: heldere samenvatting max 100 woorden van de HELE thread. Vermeld alle externe partijen/personen die relevant zijn.
+- geadresseerden: alle externe partijen (adressen + genoemde personen/bedrijven) als string, of null als echt alleen NRG intern
 - bijlagen_samenvatting: beschrijving van relevante bijlagen (of null)
 - match_type: "bedrijf", "contactpersoon", "nieuw_contact", "nieuw_bedrijf", of "onbekend"
-- match_id: uuid van het gevonden bedrijf of contact uit de bekende lijsten (of null)
-- match_naam: naam van het gevonden bedrijf of contact (of null)
+- match_id: uuid van het gevonden bedrijf of contact (of null)
+- match_naam: naam van het gevonden bedrijf of contact (of null) — NOOIT een NRG naam hier
 - match_zekerheid: "hoog", "middel", of "laag"
 - suggestie_actie: "koppel_aan_klant", "maak_nieuwe_klant", of "geen_actie"
-- suggestie_toelichting: korte uitleg max 40 woorden
+- suggestie_toelichting: korte uitleg max 40 woorden — bij geen_actie simpelweg null
 
 Bekende bedrijven (met website): ${JSON.stringify(companies?.slice(0, 50))}
 Bekende contacten: ${JSON.stringify(contacts?.slice(0, 50))}
@@ -133,10 +131,9 @@ Bekende contacten: ${JSON.stringify(contacts?.slice(0, 50))}
 Van: ${from}
 Aan: ${to || ''}
 CC: ${cc || ''}
-Externe partijen: ${externeGeadresseerden || '(zie mailinhoud)'}
 Onderwerp: ${subject}
 
-Volledige mailinhoud:
+Volledige mailinhoud (inclusief thread):
 ${emailInhoud}
 
 Geef ALLEEN een JSON object terug, geen andere tekst.`
@@ -150,7 +147,7 @@ Geef ALLEEN een JSON object terug, geen andere tekst.`
       .from('email_inbox')
       .insert({
         from_email: from,
-        to_email: externeGeadresseerden || to || null,
+        to_email: externeGeadresseerden || null,
         cc_email: cc || null,
         subject: subject,
         received_at: receivedAt,

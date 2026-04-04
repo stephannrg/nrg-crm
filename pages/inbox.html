@@ -189,9 +189,10 @@
                     ${companyOptions}
                   </select>
                   <button class="btn btn-secondary btn-sm" data-action="notitie" data-id="${e.id}">+ Notitie toevoegen</button>
-                  <button class="btn btn-ghost btn-sm" data-action="toggle-nieuw" data-id="${e.id}">+ Nieuw bedrijf</button>
+                  ${e.geadresseerden ? `<button class="btn btn-ghost btn-sm" data-action="toggle-nieuw" data-id="${e.id}">+ Nieuw bedrijf</button>` : ''}
                 </div>
 
+                ${e.geadresseerden ? `
                 <div class="nieuw-bedrijf-form" id="nieuw-form-${e.id}">
                   <div class="form-row">
                     <div class="form-field">
@@ -217,7 +218,7 @@
                     <button class="btn btn-primary btn-sm" data-action="maak-bedrijf" data-id="${e.id}">Bedrijf aanmaken & notitie toevoegen</button>
                     <button class="btn btn-ghost btn-sm" data-action="sluit-nieuw" data-id="${e.id}">Annuleren</button>
                   </div>
-                </div>
+                </div>` : ''}
               </div>
             </div>
           ` : `<div class="verwerkt-label">✓ Verwerkt</div>`}
