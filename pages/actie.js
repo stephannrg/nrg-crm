@@ -17,7 +17,7 @@ export async function openNieuweActie(container) {
         <div class="modal-handle"></div>
         <div class="modal-header">
           <h3 id="actie-title">Nieuwe actie</h3>
-          <button class="btn btn-icon close-btn" onclick="document.getElementById('actie-modal').classList.remove('open')">✕</button>
+          <button class="btn btn-icon close-btn" id="actie-close-btn">✕</button>
         </div>
         <div class="modal-body">
           <div id="actie-error" class="alert alert-error" style="display:none"></div>
@@ -29,10 +29,7 @@ export async function openNieuweActie(container) {
                 <span class="action-type-icon">📞</span>
                 <span>Belnotitie</span>
               </button>
-              <button class="action-type-btn" data-type="mail">
-                <span class="action-type-icon">✉️</span>
-                <span>E-mail</span>
-              </button>
+
               <button class="action-type-btn" data-type="meeting">
                 <span class="action-type-icon">🤝</span>
                 <span>Meeting</span>
@@ -258,6 +255,12 @@ export async function openNieuweActie(container) {
       if (!selectedCompanyId) resetActieModal(null, null)
     }
   }).observe(document.getElementById('actie-modal'), { attributes: true, attributeFilter: ['class'] })
+
+  // Close knop reset de modal volledig
+  document.getElementById('actie-close-btn')?.addEventListener('click', () => {
+    resetActieModal(null, null)
+    document.getElementById('actie-modal').classList.remove('open')
+  })
 
   // Company search
   const companySearch = document.getElementById('actie-company-search')
