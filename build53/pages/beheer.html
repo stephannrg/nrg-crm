@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Beheer — NRG CRM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css"/>
+  <script src="../js/config.js"></script>/>
+
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#00af70">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NRG CRM">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+  <link rel="shortcut icon" href="/img/favicon.ico">
+</head>
+<body>
+<script type="module">
+import { initShell } from '../js/shell.js'
+import { supabase } from '../js/supabase.js'
+import { esc, showModal, hideModal } from '../js/utils.js'
+
+const ctx = await initShell('beheer')
+if (!ctx) throw new Error()
+if (ctx.profile?.role !== 'admin') {
+  document.getElementById('main-content').innerHTML = `<div class="topbar"><h1>Beheer</h1></div><div class="page-content"><div class="empty-state"><p>Geen toegang.</p></div></div>`
+  throw new Error()
+}
+
+const main = document.getElementById('main-content')
+main.innerHTML = `
+  <div class="topbar"><h1>Beheer</h1></div>
+  <div class="page-content">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Labels / Tags</h3>
+          <button class="btn btn-sm btn-primary" id="add-tag-btn">+ Label</button>
+        </div>
+        <div class="card-body" id="tags-body"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Gebruikers</h3>
+          <button class="btn btn-sm btn-primary" id="invite-btn">+ Uitnodigen</button>
+        </div>
+        <div class="card-body" id="users-body"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- iCal koppeling -->
+  <div class="card" style="margin-top:20px">
+    <div class="card-header"><h3>📅 Kalender koppeling (iCal / Outlook)</h3></div>
+    <div class="card-body">
+      <p style="font-size:13.5px;color:var(--muted);margin-bottom:16px">
+        Abonneer je agenda op de NRG CRM feed. Activiteiten en open taken verschijnen automatisch in Outlook, Apple Calendar of Google Calendar.
+      </p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <div>
+          <div class="fw-600" style="font-size:13px;margin-bottom:6px">📧 Outlook (web / Office 365)</div>
+          <ol style="font-size:12.5px;color:var(--text);line-height:2.2;padding-left:16px;margin-bottom:10px">
+            <li>Ga naar Outlook Kalender</li>
+            <li>Klik <strong>Kalender toevoegen → Abonneren via internet</strong></li>
+            <li>Plak de URL hieronder en klik <strong>Importeren</strong></li>
+          </ol>
+        </div>
+        <div>
+          <div class="fw-600" style="font-size:13px;margin-bottom:6px">🍎 Apple Calendar (Mac / iPhone)</div>
+          <ol style="font-size:12.5px;color:var(--text);line-height:2.2;padding-left:16px;margin-bottom:10px">
+            <li>Open Agenda → <strong>Archief → Nieuw abonnement</strong></li>
+            <li>Plak de URL hieronder</li>
+            <li>Verversing instellen op <strong>Elke dag</strong> → Abonneer</li>
+          </ol>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:600">Jouw persoonlijke feed (alleen jouw activiteiten)</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div id="my-ical-url" style="flex:1;background:var(--bg);border-radius:8px;padding:9px 12px;font-family:monospace;font-size:11px;word-break:break-all;color:var(--teal-m);border:1px solid var(--border)">Laden...</div>
+            <button class="btn btn-sm btn-secondary" id="copy-my-url">Kopieer</button>
+          </div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:600">Team feed (alle activiteiten)</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div style="flex:1;background:var(--bg);border-radius:8px;padding:9px 12px;font-family:monospace;font-size:11px;word-break:break-all;color:var(--teal-m);border:1px solid var(--border)"
+              id="team-ical-url">Laden...</div>
+            <button class="btn btn-sm btn-secondary" id="copy-team-url">Kopieer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tag modal -->
+  <div class="modal-overlay" id="tag-modal">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header"><h3 id="tag-modal-title">Label toevoegen</h3><button class="btn btn-icon close-btn" id="close-tag">✕</button></div>
+      <div class="modal-body">
+        <div class="field"><label>Naam *</label><input id="t-name"/></div>
+        <div class="field"><label>Type</label>
+          <select id="t-type">
+            <option value="product">Productgroep</option>
+            <option value="interest">Interessegroep</option>
+            <option value="marketing">Marketing</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="close-tag2">Annuleren</button>
+        <button class="btn btn-primary" id="save-tag-btn">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invite modal -->
+  <div class="modal-overlay" id="invite-modal">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header"><h3>Gebruiker uitnodigen</h3><button class="btn btn-icon close-btn" id="close-invite">✕</button></div>
+      <div class="modal-body">
+        <div id="invite-result" class="alert" style="display:none"></div>
+        <div class="field"><label>E-mailadres *</label><input id="i-email" type="email"/></div>
+        <div class="field"><label>Naam *</label><input id="i-name"/></div>
+        <div class="field"><label>Rol</label>
+          <select id="i-role"><option value="user">Gebruiker</option><option value="admin">Admin</option></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="close-invite2">Sluiten</button>
+        <button class="btn btn-primary" id="save-invite-btn">Uitnodiging sturen</button>
+      </div>
+    </div>
+  </div>
+`
+
+// Default tags to seed
+const DEFAULT_TAGS = [
+  { name:'CPMS',        type:'product' },
+  { name:'ERE',         type:'product' },
+  { name:'Cockpit',     type:'product' },
+  { name:'Energiescan', type:'product' },
+  { name:'ODA',         type:'product' },
+  { name:'MVP',         type:'product' },
+]
+
+let tags=[], editingTagId=null
+
+async function loadTags(){
+  const { data } = await supabase.from('tags').select('*').order('type').order('name')
+  tags = data||[]
+
+  // Seed defaults if empty
+  if(!tags.length){
+    await supabase.from('tags').insert(DEFAULT_TAGS)
+    return loadTags()
+  }
+
+  const body = document.getElementById('tags-body')
+  const typeLabels = { product:'Productgroep', interest:'Interessegroep', marketing:'Marketing' }
+  body.innerHTML = tags.map(t => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div class="flex">
+        <span class="tag tag-${t.type}">${esc(t.name)}</span>
+        <span class="text-muted" style="font-size:11.5px">${typeLabels[t.type]||t.type}</span>
+      </div>
+      <div class="flex" style="gap:6px">
+        <button class="btn btn-sm btn-secondary edit-tag-btn" data-id="${t.id}">✎</button>
+        <button class="btn btn-sm btn-danger del-tag-btn" data-id="${t.id}">✕</button>
+      </div>
+    </div>`).join('')
+
+  body.querySelectorAll('.edit-tag-btn').forEach(btn => {
+    btn.addEventListener('click',()=>openTagEdit(btn.dataset.id))
+  })
+  body.querySelectorAll('.del-tag-btn').forEach(btn => {
+    btn.addEventListener('click',async()=>{
+      if(!confirm('Label verwijderen?'))return
+      await supabase.from('tags').delete().eq('id',btn.dataset.id)
+      loadTags()
+    })
+  })
+}
+
+async function loadUsers(){
+  const { data } = await supabase.from('profiles').select('*').order('full_name')
+  const body = document.getElementById('users-body')
+  body.innerHTML = (data||[]).map(u => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div class="flex">
+        <div class="avatar">${u.full_name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}</div>
+        <div>
+          <div class="fw-600" style="font-size:13px">${esc(u.full_name)}</div>
+          <div class="text-muted" style="font-size:11.5px">${u.role}</div>
+        </div>
+      </div>
+      <select class="filter-select role-select" data-id="${u.id}" style="font-size:12px;padding:5px 8px">
+        <option value="user" ${u.role==='user'?'selected':''}>Gebruiker</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+      </select>
+    </div>`).join('')
+
+  body.querySelectorAll('.role-select').forEach(sel => {
+    sel.addEventListener('change',async()=>{
+      await supabase.from('profiles').update({role:sel.value}).eq('id',sel.dataset.id)
+    })
+  })
+}
+
+function openTagAdd(){
+  editingTagId=null
+  document.getElementById('tag-modal-title').textContent='Label toevoegen'
+  document.getElementById('t-name').value=''
+  document.getElementById('t-type').value='product'
+  showModal('tag-modal')
+}
+function openTagEdit(id){
+  const t=tags.find(x=>x.id===id); if(!t)return
+  editingTagId=id
+  document.getElementById('tag-modal-title').textContent='Label bewerken'
+  document.getElementById('t-name').value=t.name
+  document.getElementById('t-type').value=t.type
+  showModal('tag-modal')
+}
+
+;['close-tag','close-tag2'].forEach(id=>document.getElementById(id).addEventListener('click',()=>hideModal('tag-modal')))
+;['close-invite','close-invite2'].forEach(id=>document.getElementById(id).addEventListener('click',()=>hideModal('invite-modal')))
+
+document.getElementById('add-tag-btn').addEventListener('click',openTagAdd)
+document.getElementById('save-tag-btn').addEventListener('click',async()=>{
+  const name=document.getElementById('t-name').value.trim(); if(!name)return
+  const payload={name,type:document.getElementById('t-type').value}
+  if(editingTagId) await supabase.from('tags').update(payload).eq('id',editingTagId)
+  else await supabase.from('tags').insert(payload)
+  hideModal('tag-modal'); loadTags()
+})
+
+document.getElementById('invite-btn').addEventListener('click',()=>{
+  document.getElementById('invite-result').style.display='none'
+  ;['i-email','i-name'].forEach(id=>document.getElementById(id).value='')
+  showModal('invite-modal')
+})
+document.getElementById('save-invite-btn').addEventListener('click',async()=>{
+  const email=document.getElementById('i-email').value.trim()
+  const name=document.getElementById('i-name').value.trim()
+  const result=document.getElementById('invite-result')
+  if(!email||!name)return
+  const { error } = await supabase.auth.admin.inviteUserByEmail(email,{data:{full_name:name,role:document.getElementById('i-role').value}})
+  if(error){ result.className='alert alert-error'; result.textContent='Fout: '+error.message }
+  else { result.className='alert alert-success'; result.textContent='✓ Uitnodiging verstuurd naar '+email }
+  result.style.display='block'
+  loadUsers()
+})
+
+await Promise.all([loadTags(),loadUsers()])
+
+// iCal URLs
+const { data: { session } } = await supabase.auth.getSession()
+const uid = session?.user?.id
+const base = location.origin + '/.netlify/functions/calendar'
+document.getElementById('my-ical-url').textContent = base + '?user=' + uid
+document.getElementById('team-ical-url').textContent = base
+
+function copyUrl(elId, btnId) {
+  const url = document.getElementById(elId).textContent
+  document.getElementById(btnId).addEventListener('click', () => {
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = document.getElementById(btnId)
+      const orig = btn.textContent
+      btn.textContent = '✓ Gekopieerd!'
+      btn.style.color = 'var(--green)'
+      setTimeout(() => { btn.textContent = orig; btn.style.color = '' }, 2000)
+    })
+  })
+}
+copyUrl('my-ical-url', 'copy-my-url')
+copyUrl('team-ical-url', 'copy-team-url')
+</script>
+</body>
+</html>

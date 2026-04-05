@@ -28,7 +28,7 @@
     .inbox-attachments { font-size: 12px; color: var(--text-muted); margin-top: 6px; padding: 6px 12px; background: var(--bg-muted); border-radius: 6px; border-left: 3px solid var(--border); }
     .nova-box { margin-top: 12px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
     .nova-header { padding: 8px 14px; background: var(--bg-muted); font-size: 12px; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
-    .nova-logo { width: 16px; height: 16px; background: var(--teal-m); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white; font-size: 9px; font-weight: 700; flex-shrink: 0; }
+    .nova-header .nova-logo { width: 14px; height: 14px; background: var(--teal-m); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white; font-size: 8px; font-weight: 700; }
     .nova-body { padding: 12px 14px; }
     .suggestie-row { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
     .suggestie-tekst { flex: 1; font-size: 13px; color: var(--text); min-width: 180px; }
@@ -38,33 +38,26 @@
     .match-laag { background: #fee2e2; color: #991b1b; }
     .match-onbekend { background: var(--bg-muted); color: var(--text-muted); }
     .badge-type { font-size: 11px; padding: 1px 7px; border-radius: 8px; background: var(--teal-l); color: var(--teal-d); font-weight: 500; }
-    .actie-keuze { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
-    .actie-tab { padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: white; color: var(--text-muted); transition: all .15s; }
+    .actie-keuze { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+    .actie-tab { padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: white; color: var(--text-muted); }
     .actie-tab.active { background: var(--teal-m); color: white; border-color: var(--teal-m); }
     .actie-panel { display: none; }
     .actie-panel.active { display: block; }
     .notitie-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .notitie-row select { flex: 1; min-width: 160px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; background: white; color: var(--text); }
-    .dicteer-wrap { display: flex; flex-direction: column; gap: 10px; }
-    .dicteer-row { display: flex; gap: 8px; align-items: center; }
-    .dicteer-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; border: 2px solid var(--teal-m); background: white; color: var(--teal-m); font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
-    .dicteer-btn:hover { background: var(--teal-m); color: white; }
-    .dicteer-btn.opname { background: #fee2e2; border-color: #ef4444; color: #ef4444; animation: puls 1s infinite; }
-    .dicteer-btn.opname:hover { background: #ef4444; color: white; }
-    @keyframes puls { 0%,100% { opacity: 1; } 50% { opacity: .6; } }
-    .dicteer-tekst { font-size: 13px; color: var(--text-muted); font-style: italic; flex: 1; }
-    .nova-analyse { margin-top: 8px; padding: 10px 12px; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0; font-size: 13px; color: var(--text); display: none; }
-    .nova-analyse.zichtbaar { display: block; }
-    .nova-analyse-acties { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-    .inbox-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
-    .nieuw-form { margin-top: 10px; padding: 12px; background: var(--bg-muted); border-radius: 8px; border: 1px dashed var(--border); }
+    .actie-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+    .actie-form select { flex: 1; min-width: 140px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; background: white; color: var(--text); }
+    .actie-form input[type=date] { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; background: white; color: var(--text); }
+    .actie-form input[type=text] { flex: 1; min-width: 160px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; background: white; color: var(--text); }
+    .inbox-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .nieuw-form { margin-top: 10px; padding: 12px; background: var(--bg-muted); border-radius: 8px; border: 1px dashed var(--border); display: none; }
+    .nieuw-form.open { display: block; }
     .nieuw-form .form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
     .nieuw-form .form-field { flex: 1; min-width: 140px; }
     .nieuw-form label { font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 3px; }
     .nieuw-form input { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; background: white; color: var(--text); box-sizing: border-box; }
     .nieuw-form .form-actions { display: flex; gap: 8px; margin-top: 4px; }
     .filter-bar { display: flex; gap: 8px; margin-bottom: 16px; }
-    .app-footer { text-align: center; font-size: 11px; color: var(--text-muted); padding: 20px 0 8px; opacity: .5; }
   </style>
 </head>
 <body>
@@ -92,7 +85,6 @@
           <div class="loading"><div class="spinner"></div></div>
         </div>
       </div>
-      <div class="app-footer">NRG CRM · versie 1.53</div>
     </div>
   `
 
@@ -102,61 +94,32 @@
   function isNrg(addr) { return NRG_DOMEINEN.some(d => (addr||'').toLowerCase().includes('@'+d)) }
   function guessNaam(addr) {
     if (!addr || isNrg(addr)) return ''
-    const m = addr.match(/^([^<@]+)/); return m ? m[1].trim().replace(/[._]/g,' ') : ''
+    const m = addr.match(/^([^<@]+)/)
+    return m ? m[1].trim().replace(/[._]/g, ' ') : ''
   }
   function guessDomain(addr) {
     if (!addr || isNrg(addr)) return ''
-    const domain = addr.split('@')[1]?.toLowerCase(); if (!domain) return ''
+    const domain = addr.split('@')[1]?.toLowerCase()
+    if (!domain) return ''
     const generiek = ['gmail.com','hotmail.com','outlook.com','yahoo.com','icloud.com','live.com','me.com']
-    return generiek.includes(domain) ? '' : 'https://'+domain
+    return generiek.includes(domain) ? '' : 'https://' + domain
   }
+
   function morgen() {
-    const d = new Date(); d.setDate(d.getDate()+1); return d.toISOString().split('T')[0]
-  }
-
-  // NOVA dicteer analyse
-  async function novaAnalyseer(tekst, emailId, emailData) {
-    const email = emailData
-    const companiesLijst = companies.map(c => `${c.name} (id:${c.id})`).join(', ')
-    const response = await fetch('/.netlify/functions/transcribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 800,
-        messages: [{
-          role: 'user',
-          content: `Je bent NOVA, een CRM assistent. Analyseer deze gesproken opdracht en bepaal wat de gebruiker wil doen.
-
-Gesproken opdracht: "${tekst}"
-
-Context: dit gaat over een e-mail met onderwerp "${email.subject}" van ${email.from_email}.
-Bekende bedrijven: ${companiesLijst}
-
-Geef een JSON response met:
-- type: "notitie" of "taak"
-- company_id: uuid van het bedrijf als je het herkent (of null)
-- company_naam: naam van het bedrijf (of null)
-- inhoud: de tekst van de notitie of taak (max 100 woorden)
-- due_date: datum in YYYY-MM-DD formaat als er een datum/tijd wordt genoemd (of null)
-- bevestiging: een korte vriendelijke bevestigingszin wat NOVA gaat doen (max 20 woorden)
-
-Geef ALLEEN een JSON object terug.`
-        }]
-      })
-    })
-    const data = await response.json()
-    const tekst2 = data.content?.[0]?.text || ''
-    return JSON.parse(tekst2.replace(/```json|```/g,'').trim())
+    const d = new Date(); d.setDate(d.getDate() + 1)
+    return d.toISOString().split('T')[0]
   }
 
   async function load() {
-    let query = supabase.from('email_inbox').select('*').order('received_at',{ascending:false}).limit(100)
+    let query = supabase.from('email_inbox').select('*').order('received_at', { ascending: false }).limit(100)
     if (!isAdmin) query = query.eq('assigned_to', uid)
     const [{ data: emailData }, { data: companyData }] = await Promise.all([
-      query, supabase.from('companies').select('id, name').order('name')
+      query,
+      supabase.from('companies').select('id, name').order('name')
     ])
-    emails = emailData || []; companies = companyData || []; render()
+    emails = emailData || []
+    companies = companyData || []
+    render()
   }
 
   function render() {
@@ -168,14 +131,17 @@ Geef ALLEEN een JSON object terug.`
 
     body.innerHTML = filtered.map(e => {
       const z = e.match_zekerheid || 'onbekend'
-      const zl = { hoog:'Hoge zekerheid', middel:'Gemiddelde zekerheid', laag:'Lage zekerheid', onbekend:'Onbekend' }[z] || z
-      const tl = { bedrijf:'Bedrijf', contactpersoon:'Contact', nieuw_contact:'Nieuw contact', nieuw_bedrijf:'Nieuw bedrijf', onbekend:'Onbekend' }[e.match_type] || '?'
+      const zl = { hoog: 'Hoge zekerheid', middel: 'Gemiddelde zekerheid', laag: 'Lage zekerheid', onbekend: 'Onbekend' }[z] || z
+      const tl = { bedrijf: 'Bedrijf', contactpersoon: 'Contact', nieuw_contact: 'Nieuw contact', nieuw_bedrijf: 'Nieuw bedrijf', onbekend: 'Onbekend' }[e.match_type] || '?'
+
       const eersteExtern = e.geadresseerden ? e.geadresseerden.split(',').map(a=>a.trim()).find(a=>!isNrg(a)) : null
       const voorNaam = e.match_naam || (eersteExtern ? guessNaam(eersteExtern) : '')
       const voorEmail = eersteExtern && !isNrg(eersteExtern) ? eersteExtern : ''
       const voorWebsite = eersteExtern ? guessDomain(eersteExtern) : ''
+
       const selectedOption = e.match_id && e.match_type === 'bedrijf'
         ? `<option value="${e.match_id}" selected>${esc(e.match_naam||'')}</option>` : ''
+
       const koppelKnop = e.suggestie_actie === 'koppel_aan_klant' && e.match_id
         ? `<button class="btn btn-primary btn-sm" data-action="koppelen" data-id="${e.id}" data-match-id="${e.match_id}" data-match-type="${e.match_type}">✓ Koppelen aan ${esc(e.match_naam||'klant')}</button>` : ''
 
@@ -189,6 +155,7 @@ Geef ALLEEN een JSON object terug.`
             </div>
             <div class="inbox-date">${e.received_at ? new Date(e.received_at).toLocaleString('nl-NL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : ''}</div>
           </div>
+
           ${e.samenvatting ? `<div class="inbox-summary">${esc(e.samenvatting)}</div>` : ''}
           ${e.bijlagen_samenvatting ? `<div class="inbox-attachments">📎 ${esc(e.bijlagen_samenvatting)}</div>` : ''}
 
@@ -207,11 +174,12 @@ Geef ALLEEN een JSON object terug.`
                 </div>
                 ${e.suggestie_toelichting ? `<div class="suggestie-tekst">${esc(e.suggestie_toelichting)}</div>` : ''}
               </div>
-              ${koppelKnop ? `<div style="margin-bottom:12px">${koppelKnop}</div>` : ''}
+
+              ${koppelKnop ? `<div style="margin-bottom:10px">${koppelKnop}</div>` : ''}
 
               <div class="actie-keuze">
-                <button class="actie-tab active" data-tab="notitie" data-id="${e.id}">📝 Notitie</button>
-                <button class="actie-tab" data-tab="dicteer" data-id="${e.id}">🎙️ Spreek actie in</button>
+                <button class="actie-tab active" data-tab="notitie" data-id="${e.id}">📝 Notitie toevoegen</button>
+                <button class="actie-tab" data-tab="actie" data-id="${e.id}">✅ Actie aanmaken</button>
                 <button class="actie-tab" data-tab="nieuw" data-id="${e.id}">🏢 Nieuw bedrijf</button>
               </div>
 
@@ -225,24 +193,20 @@ Geef ALLEEN een JSON object terug.`
                 </div>
               </div>
 
-              <div class="actie-panel" id="panel-dicteer-${e.id}">
-                <div class="dicteer-wrap">
-                  <div class="dicteer-row">
-                    <button class="dicteer-btn" data-action="dicteer" data-id="${e.id}">
-                      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
-                      Spreek in
-                    </button>
-                    <span class="dicteer-tekst" id="dicteer-status-${e.id}">Druk op de knop en spreek je opdracht in...</span>
-                  </div>
-                  <div class="nova-analyse" id="nova-analyse-${e.id}">
-                    <div id="nova-analyse-tekst-${e.id}"></div>
-                    <div class="nova-analyse-acties" id="nova-analyse-acties-${e.id}"></div>
-                  </div>
+              <div class="actie-panel" id="panel-actie-${e.id}">
+                <div class="actie-form">
+                  <select data-select-actie="${e.id}">
+                    <option value="">— Kies bedrijf —</option>
+                    ${selectedOption}${companyOptions}
+                  </select>
+                  <input type="text" id="actie-titel-${e.id}" placeholder="Actie omschrijving" value="${esc(e.subject||'')}"/>
+                  <input type="date" id="actie-datum-${e.id}" value="${morgen()}"/>
+                  <button class="btn btn-primary btn-sm" data-action="maak-actie" data-id="${e.id}">✅ Actie aanmaken</button>
                 </div>
               </div>
 
               <div class="actie-panel" id="panel-nieuw-${e.id}">
-                <div class="nieuw-form">
+                <div class="nieuw-form open" id="nieuw-form-${e.id}">
                   <div class="form-row">
                     <div class="form-field">
                       <label>Bedrijfsnaam *</label>
@@ -280,175 +244,123 @@ Geef ALLEEN een JSON object terug.`
     // Tab wisselen
     body.querySelectorAll('.actie-tab').forEach(tab => {
       tab.addEventListener('click', () => {
-        const id = tab.dataset.id, type = tab.dataset.tab
+        const id = tab.dataset.id
+        const type = tab.dataset.tab
         body.querySelectorAll(`.actie-tab[data-id="${id}"]`).forEach(t => t.classList.remove('active'))
         tab.classList.add('active')
-        ;['notitie','dicteer','nieuw'].forEach(t => {
+        ;['notitie','actie','nieuw'].forEach(t => {
           document.getElementById(`panel-${t}-${id}`)?.classList.toggle('active', t === type)
         })
       })
     })
 
-    // Koppelen
+    // Koppelen aan bestaande klant
     body.querySelectorAll('[data-action="koppelen"]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const id = btn.dataset.id, email = emails.find(e => e.id === id)
-        if (!email) return; btn.disabled = true; btn.textContent = 'Bezig...'
+        const id = btn.dataset.id
+        const email = emails.find(e => e.id === id)
+        if (!email) return
+        btn.disabled = true; btn.textContent = 'Bezig...'
         const { error } = await supabase.from('activities').insert({
           company_id: btn.dataset.matchType === 'bedrijf' ? btn.dataset.matchId : null,
           type: 'mail', subject: email.subject || '(geen onderwerp)',
-          body: email.samenvatting || email.raw_email?.slice(0,500),
+          body: email.samenvatting || email.raw_email?.slice(0, 500),
           occurred_at: email.received_at, logged_by: uid
         })
         if (!error) { await supabase.from('email_inbox').delete().eq('id', id); await load() }
-        else { btn.disabled = false; btn.textContent = '✓ Koppelen'; alert('Fout: '+error.message) }
+        else { btn.disabled = false; btn.textContent = '✓ Koppelen'; alert('Fout: ' + error.message) }
       })
     })
 
-    // Notitie
+    // Notitie bij bedrijf
     body.querySelectorAll('[data-action="notitie"]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const id = btn.dataset.id, email = emails.find(e => e.id === id)
+        const id = btn.dataset.id
+        const email = emails.find(e => e.id === id)
         const companyId = body.querySelector(`[data-select-notitie="${id}"]`)?.value
         if (!companyId) { alert('Kies eerst een bedrijf.'); return }
         btn.disabled = true; btn.textContent = 'Bezig...'
         const { error } = await supabase.from('activities').insert({
           company_id: companyId, type: 'mail',
           subject: email.subject || '(geen onderwerp)',
-          body: email.samenvatting || email.raw_email?.slice(0,500),
+          body: email.samenvatting || email.raw_email?.slice(0, 500),
           occurred_at: email.received_at, logged_by: uid
         })
         if (!error) { await supabase.from('email_inbox').delete().eq('id', id); await load() }
-        else { btn.disabled = false; btn.textContent = '+ Notitie toevoegen'; alert('Fout: '+error.message) }
+        else { btn.disabled = false; btn.textContent = '+ Notitie toevoegen'; alert('Fout: ' + error.message) }
       })
     })
 
-    // Dicteer actie
-    body.querySelectorAll('[data-action="dicteer"]').forEach(btn => {
-      let recognition = null
-      btn.addEventListener('click', () => {
+    // Actie aanmaken
+    body.querySelectorAll('[data-action="maak-actie"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
         const id = btn.dataset.id
-        const statusEl = document.getElementById(`dicteer-status-${id}`)
-        const analyseEl = document.getElementById(`nova-analyse-${id}`)
-        const analyseTekstEl = document.getElementById(`nova-analyse-tekst-${id}`)
-        const analyseActiesEl = document.getElementById(`nova-analyse-acties-${id}`)
         const email = emails.find(e => e.id === id)
-
-        if (btn.classList.contains('opname')) {
-          recognition?.stop(); return
-        }
-
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-        if (!SR) { alert('Spraakherkenning niet beschikbaar in deze browser.'); return }
-
-        recognition = new SR()
-        recognition.lang = 'nl-NL'
-        recognition.continuous = false
-        recognition.interimResults = false
-
-        recognition.onstart = () => {
-          btn.classList.add('opname'); btn.querySelector('span') && (btn.querySelector('span').textContent = 'Stop opname')
-          btn.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Stop opname`
-          statusEl.textContent = 'Luistert...'
-        }
-
-        recognition.onresult = async (event) => {
-          const gesprokenTekst = event.results[0][0].transcript
-          statusEl.textContent = `"${gesprokenTekst}"`
-          btn.classList.remove('opname')
-          btn.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Spreek in`
-
-          analyseTekstEl.textContent = 'NOVA analyseert...'
-          analyseEl.classList.add('zichtbaar')
-          analyseActiesEl.innerHTML = ''
-
-          try {
-            const analyse = await novaAnalyseer(gesprokenTekst, id, email)
-            analyseTekstEl.innerHTML = `<strong>NOVA:</strong> ${esc(analyse.bevestiging || '')}`
-
-            if (analyse.type === 'notitie') {
-              analyseActiesEl.innerHTML = `
-                <button class="btn btn-primary btn-sm" id="nova-bevestig-${id}">✓ Notitie aanmaken</button>
-                <button class="btn btn-ghost btn-sm" id="nova-annuleer-${id}">Annuleren</button>`
-
-              document.getElementById(`nova-bevestig-${id}`).addEventListener('click', async () => {
-                const { error } = await supabase.from('activities').insert({
-                  company_id: analyse.company_id || null, type: 'notitie',
-                  subject: analyse.inhoud?.slice(0,80) || email.subject,
-                  body: analyse.inhoud || '', occurred_at: new Date().toISOString(), logged_by: uid
-                })
-                if (!error) { await supabase.from('email_inbox').delete().eq('id', id); await load() }
-                else alert('Fout: '+error.message)
-              })
-            } else if (analyse.type === 'taak') {
-              analyseActiesEl.innerHTML = `
-                <button class="btn btn-primary btn-sm" id="nova-bevestig-${id}">✓ Taak aanmaken</button>
-                <button class="btn btn-ghost btn-sm" id="nova-annuleer-${id}">Annuleren</button>`
-
-              document.getElementById(`nova-bevestig-${id}`).addEventListener('click', async () => {
-                const { error } = await supabase.from('tasks').insert({
-                  company_id: analyse.company_id || null,
-                  title: analyse.inhoud || email.subject,
-                  due_date: analyse.due_date || morgen(),
-                  status: 'open', assigned_to: uid
-                })
-                if (!error) { await supabase.from('email_inbox').delete().eq('id', id); await load() }
-                else alert('Fout: '+error.message)
-              })
-            }
-
-            document.getElementById(`nova-annuleer-${id}`)?.addEventListener('click', () => {
-              analyseEl.classList.remove('zichtbaar'); statusEl.textContent = 'Druk op de knop en spreek je opdracht in...'
-            })
-          } catch (err) {
-            analyseTekstEl.textContent = 'NOVA kon de opdracht niet verwerken. Probeer opnieuw.'
-          }
-        }
-
-        recognition.onerror = () => {
-          btn.classList.remove('opname')
-          btn.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Spreek in`
-          statusEl.textContent = 'Fout bij opname. Probeer opnieuw.'
-        }
-
-        recognition.start()
+        const companyId = body.querySelector(`[data-select-actie="${id}"]`)?.value
+        const titel = document.getElementById(`actie-titel-${id}`)?.value?.trim()
+        const datum = document.getElementById(`actie-datum-${id}`)?.value
+        if (!companyId) { alert('Kies eerst een bedrijf.'); return }
+        if (!titel) { alert('Vul een omschrijving in.'); return }
+        btn.disabled = true; btn.textContent = 'Bezig...'
+        const { error } = await supabase.from('tasks').insert({
+          company_id: companyId,
+          title: titel,
+          due_date: datum || morgen(),
+          status: 'open',
+          assigned_to: uid
+        })
+        if (!error) { await supabase.from('email_inbox').delete().eq('id', id); await load() }
+        else { btn.disabled = false; btn.textContent = '✅ Actie aanmaken'; alert('Fout: ' + error.message) }
       })
     })
 
-    // Nieuw bedrijf
+    // Nieuw bedrijf aanmaken
     body.querySelectorAll('[data-action="maak-bedrijf"]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const id = btn.dataset.id, email = emails.find(e => e.id === id)
+        const id = btn.dataset.id
+        const email = emails.find(e => e.id === id)
         const naam = document.getElementById(`nieuw-naam-${id}`)?.value?.trim()
         if (!naam) { alert('Vul een bedrijfsnaam in.'); return }
         btn.disabled = true; btn.textContent = 'Bezig...'
-        const { data: nieuwBedrijf, error: bedrijfError } = await supabase.from('companies')
-          .insert({ name: naam, website: document.getElementById(`nieuw-website-${id}`)?.value?.trim()||null,
-            stad: document.getElementById(`nieuw-stad-${id}`)?.value?.trim()||null, status:'suspect', owner_id:uid })
+        const { data: nieuwBedrijf, error: bedrijfError } = await supabase
+          .from('companies')
+          .insert({
+            name: naam,
+            website: document.getElementById(`nieuw-website-${id}`)?.value?.trim() || null,
+            stad: document.getElementById(`nieuw-stad-${id}`)?.value?.trim() || null,
+            status: 'suspect', owner_id: uid
+          })
           .select('id').single()
-        if (bedrijfError) { btn.disabled=false; btn.textContent='Bedrijf aanmaken & notitie toevoegen'; alert('Fout: '+bedrijfError.message); return }
+        if (bedrijfError) { btn.disabled = false; btn.textContent = 'Bedrijf aanmaken & notitie toevoegen'; alert('Fout: ' + bedrijfError.message); return }
         const contactEmail = document.getElementById(`nieuw-email-${id}`)?.value?.trim()
-        if (contactEmail) await supabase.from('contacts').insert({ company_id:nieuwBedrijf.id, name:naam, email:contactEmail })
-        await supabase.from('activities').insert({ company_id:nieuwBedrijf.id, type:'mail',
-          subject:email.subject||'(geen onderwerp)', body:email.samenvatting||email.raw_email?.slice(0,500),
-          occurred_at:email.received_at, logged_by:uid })
+        if (contactEmail) {
+          await supabase.from('contacts').insert({ company_id: nieuwBedrijf.id, name: naam, email: contactEmail })
+        }
+        await supabase.from('activities').insert({
+          company_id: nieuwBedrijf.id, type: 'mail',
+          subject: email.subject || '(geen onderwerp)',
+          body: email.samenvatting || email.raw_email?.slice(0, 500),
+          occurred_at: email.received_at, logged_by: uid
+        })
         await supabase.from('email_inbox').delete().eq('id', id)
         await load()
       })
     })
 
-    // Negeren
+    // Negeren = verwijderen
     body.querySelectorAll('[data-action="negeren"]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        await supabase.from('email_inbox').delete().eq('id', btn.dataset.id); await load()
+        await supabase.from('email_inbox').delete().eq('id', btn.dataset.id)
+        await load()
       })
     })
   }
 
   document.querySelectorAll('[data-f]').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-f]').forEach(b => b.className='btn btn-secondary')
-      btn.className='btn btn-primary'; filter=btn.dataset.f; render()
+      document.querySelectorAll('[data-f]').forEach(b => b.className = 'btn btn-secondary')
+      btn.className = 'btn btn-primary'
+      filter = btn.dataset.f; render()
     })
   })
 
