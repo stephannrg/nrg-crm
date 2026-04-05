@@ -462,7 +462,7 @@ document.addEventListener('selectDay', e => {
             const cl = (cd.data||[]).map(c=>c.name+' (id:'+c.id+')').join(', ')
             const r = await fetch('/.netlify/functions/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:800,messages:[{role:'user',content:'Je bent NOVA, een CRM assistent. Analyseer: "'+tekst+'"\n\nBedrijven: '+cl+'\n\nJSON response:\n- type: "notitie" of "taak"\n- company_id: uuid (of null)\n- company_naam: naam (of null)\n- inhoud: tekst (max 100 woorden)\n- due_date: YYYY-MM-DD (of null)\n- bevestiging: max 20 woorden\n\nAlleen JSON.'}]})})
             const d = await r.json()
-            const a = JSON.parse(d.content?.[0]?.text?.replace(/```json|```/g,'').trim())
+            const a = JSON.parse(d.content?.[0]?.text?.replace(/\x60\x60\x60json|\x60\x60\x60/g,'').trim())
             const mg = new Date(); mg.setDate(mg.getDate()+1)
             resultaat.innerHTML = '<strong>NOVA:</strong> '+esc(a.bevestiging||'')+'<div style="display:flex;gap:8px;margin-top:8px"><button id="nv-ok" class="btn btn-primary btn-sm">\u2713 '+(a.type==='taak'?'Taak':'Notitie')+' aanmaken</button><button id="nv-no" class="btn btn-ghost btn-sm">Annuleren</button></div>'
             document.getElementById('nv-ok').addEventListener('click',async()=>{
@@ -521,7 +521,7 @@ document.addEventListener('selectDay', e => {
             })
           })
           const d = await r.json()
-          const a = JSON.parse(d.content?.[0]?.text?.replace(/```json|```/g,'').trim())
+          const a = JSON.parse(d.content?.[0]?.text?.replace(/\x60\x60\x60json|\x60\x60\x60/g,'').trim())
           const mg = new Date(); mg.setDate(mg.getDate()+1)
           if (resultaat) resultaat.innerHTML = '<strong>NOVA:</strong> '+esc(a.bevestiging||'')+'<div style="display:flex;gap:8px;margin-top:8px"><button id="nv-ok" class="btn btn-primary btn-sm">\u2713 '+(a.type==='taak'?'Taak':'Notitie')+' aanmaken</button><button id="nv-no" class="btn btn-ghost btn-sm">Annuleren</button></div>'
           document.getElementById('nv-ok')?.addEventListener('click', async () => {
