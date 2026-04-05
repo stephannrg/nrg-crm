@@ -254,8 +254,13 @@ document.getElementById('save-invite-btn').addEventListener('click',async()=>{
   const name=document.getElementById('i-name').value.trim()
   const result=document.getElementById('invite-result')
   if(!email||!name)return
-  const { error } = await supabase.auth.admin.inviteUserByEmail(email,{data:{full_name:name,role:document.getElementById('i-role').value}})
-  if(error){ result.className='alert alert-error'; result.textContent='Fout: '+error.message }
+  const resp = await fetch('/.netlify/functions/invite-user', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, full_name: name, role: document.getElementById('i-role').value })
+  })
+  const json = await resp.json()
+  if(json.error){ result.className='alert alert-error'; result.textContent='Fout: '+json.error }
   else { result.className='alert alert-success'; result.textContent='✓ Uitnodiging verstuurd naar '+email }
   result.style.display='block'
   loadUsers()
