@@ -218,15 +218,13 @@ async function loadUsers(){
   body.querySelectorAll('.del-user-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm(`Gebruiker '${btn.dataset.naam}' verwijderen? Dit kan niet ongedaan worden.`)) return
-      const { error } = await supabase.auth.admin ? 
-        fetch('/.netlify/functions/delete-user', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: btn.dataset.id })
-        }).then(r => r.json()) :
-        { error: 'Geen admin rechten' }
-      if (error?.error || error) { alert('Fout: ' + (error.error || error)); return }
-      await supabase.from('profiles').delete().eq('id', btn.dataset.id)
+      const resp = await fetch('/.netlify/functions/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: btn.dataset.id })
+      })
+      const json = await resp.json()
+      if (json.error) { alert('Fout: ' + json.error); return }
       loadUsers()
     })
   })
