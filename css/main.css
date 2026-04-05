@@ -22,7 +22,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; font-family: var(--font); color: var(--text); background: var(--bg); font-size: 14px; -webkit-font-smoothing: antialiased; }
+html, body { height: 100%; font-family: var(--font); color: var(--text); background: var(--bg); font-size: 14px; -webkit-font-smoothing: antialiased; overscroll-behavior: none; }
 a { color: inherit; text-decoration: none; }
 button { font-family: var(--font); cursor: pointer; border: none; background: none; }
 input, textarea, select { font-family: var(--font); font-size: 14px; }
@@ -65,10 +65,10 @@ input, textarea, select { font-family: var(--font); font-size: 14px; }
 .logout-btn:hover { color: white; }
 
 /* ── Main ── */
-.main { flex: 1; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; min-width: 0; }
+.main { flex: 1; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; min-width: 0; -webkit-overflow-scrolling: touch; }
 .topbar { height: 54px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 22px; gap: 12px; flex-shrink: 0; }
 .topbar h1 { font-size: 16px; font-weight: 700; flex: 1; letter-spacing: -.2px; }
-.page-content { flex: 1; overflow-y: auto; padding: 22px; }
+.page-content { flex: 1; overflow-y: auto; padding: 22px; -webkit-overflow-scrolling: touch; }
 
 /* ── Bottom nav ── */
 .bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; height: var(--bottom-h); background: var(--surface); border-top: 1px solid var(--border); align-items: center; justify-content: space-around; z-index: 100; box-shadow: 0 -4px 16px rgba(0,0,0,.06); }
@@ -386,7 +386,7 @@ tbody tr:hover td { background: #f6faf8; cursor: pointer; }
 @media (max-width: 768px) {
   .sidebar { display: none; }
   .bottom-nav { display: flex; }
-  .page-content { padding: 14px; padding-bottom: calc(var(--bottom-h) + 14px); }
+  .page-content { padding: 14px; padding-bottom: calc(var(--bottom-h) + 40px); -webkit-overflow-scrolling: touch; }
   .topbar { padding: 0 14px; height: 50px; }
   .company-grid { grid-template-columns: repeat(2, 1fr); }
   .stats-row { grid-template-columns: 1fr 1fr; }
