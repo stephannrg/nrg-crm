@@ -34,7 +34,7 @@ const main = document.getElementById('main-content')
 main.innerHTML = `
   <div class="topbar"><h1>Beheer</h1></div>
   <div class="page-content">
-    <div id="admin-section" style="display:none"><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
 
       <div class="card">
         <div class="card-header">
@@ -54,7 +54,6 @@ main.innerHTML = `
 
     </div>
   </div>
-</div>
 
   <!-- iCal koppeling -->
   <div class="card" style="margin-top:20px">
@@ -268,11 +267,7 @@ document.getElementById('save-invite-btn').addEventListener('click',async()=>{
   loadUsers()
 })
 
-if (isAdmin) {
-    const adminSection = document.getElementById('admin-section')
-    if (adminSection) adminSection.style.display = 'block'
-    await Promise.all([loadTags(), loadUsers()])
-  }
+await Promise.all([loadTags(), loadUsers()])
 
 // iCal URLs
 const { data: { session } } = await supabase.auth.getSession()

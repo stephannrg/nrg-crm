@@ -75,7 +75,6 @@
   const ctx = await initShell('inbox')
   if (!ctx) throw new Error()
 
-  const isAdmin = ctx.profile?.role === 'admin'
   const uid = ctx.session.user.id
 
   const main = document.getElementById('main-content')
@@ -150,7 +149,7 @@ Geef ALLEEN een JSON object terug.`
 
   async function load() {
     let query = supabase.from('email_inbox').select('*').order('received_at',{ascending:false}).limit(100)
-    if (!isAdmin) query = query.eq('assigned_to', uid)
+
     const [{ data: emailData }, { data: companyData }] = await Promise.all([
       query, supabase.from('companies').select('id, name').order('name')
     ])
