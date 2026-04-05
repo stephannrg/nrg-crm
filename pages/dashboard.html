@@ -172,23 +172,60 @@ function render(acts,calTasks,myTasks,openDeals,compCount) {
         </div>
       </div>
       <div class="card">
-        <div class="card-header" style="border-bottom:none;padding-bottom:8px">
+        <div class="card-header" style="border-bottom:1px solid var(--border);padding-bottom:12px">
           <div style="display:flex;align-items:center;gap:8px">
             <span style="width:22px;height:22px;background:var(--teal-m);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:800">N</span>
             <h3 style="margin:0">NOVA</h3>
           </div>
           <span style="font-size:11px;color:var(--text-muted)">Jouw AI assistent</span>
         </div>
-        <div class="card-body" style="padding-top:8px">
-          <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:12px;line-height:1.5">Spreek een opdracht in. Bijv: <em>"notitie bij Acme over gesprek van vandaag"</em> of <em>"taak aanmaken om morgen eLecture te bellen"</em></p>
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-            <button id="nova-mic-btn" style="display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">
-              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
-              Spreek in
-            </button>
-            <span id="nova-mic-status" style="font-size:12.5px;color:var(--text-muted);font-style:italic;flex:1">Druk op de knop en geef NOVA een opdracht...</span>
+        <div class="card-body" style="padding-top:12px" id="nova-card-body">
+          <div id="nova-step-1">
+            <p style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text)">Wat wil je doen?</p>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button class="nova-keuze-btn" data-type="meeting" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:white;cursor:pointer;text-align:left;font-size:13px;font-weight:500;transition:all .15s">
+                <span style="font-size:18px">🤝</span><div><div style="font-weight:600">Afspraak vastleggen</div><div style="font-size:11px;color:var(--text-muted)">Meeting of gesprek registreren</div></div>
+              </button>
+              <button class="nova-keuze-btn" data-type="notitie" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:white;cursor:pointer;text-align:left;font-size:13px;font-weight:500;transition:all .15s">
+                <span style="font-size:18px">📝</span><div><div style="font-weight:600">Notitie maken</div><div style="font-size:11px;color:var(--text-muted)">Aantekening bij een relatie</div></div>
+              </button>
+              <button class="nova-keuze-btn" data-type="taak" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:white;cursor:pointer;text-align:left;font-size:13px;font-weight:500;transition:all .15s">
+                <span style="font-size:18px">✅</span><div><div style="font-weight:600">Taak aanmaken</div><div style="font-size:11px;color:var(--text-muted)">Opvolging of herinnering</div></div>
+              </button>
+            </div>
           </div>
-          <div id="nova-resultaat" style="display:none;padding:12px;background:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0;font-size:13px"></div>
+          <div id="nova-step-2" style="display:none">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+              <button id="nova-back-1" style="background:none;border:none;cursor:pointer;color:var(--teal-m);font-size:13px;padding:0">← Terug</button>
+              <span id="nova-type-label" style="font-size:13px;font-weight:600;color:var(--text)"></span>
+            </div>
+            <p style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text)">Over welke relatie?</p>
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+              <button id="nova-relatie-mic" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1.5px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+                Spreek in
+              </button>
+              <input id="nova-relatie-input" type="text" placeholder="Of typ naam..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit"/>
+            </div>
+            <div id="nova-relatie-suggestions" style="display:none;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px;max-height:160px;overflow-y:auto"></div>
+            <div id="nova-relatie-selected" style="display:none;padding:8px 12px;background:var(--teal-l);border-radius:8px;font-size:13px;color:var(--teal-d);font-weight:500;margin-bottom:10px"></div>
+            <button id="nova-volgende" style="width:100%;padding:10px;border-radius:8px;border:none;background:var(--teal-m);color:white;font-size:13px;font-weight:700;cursor:pointer;opacity:.4" disabled>Volgende →</button>
+          </div>
+          <div id="nova-step-3" style="display:none">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+              <button id="nova-back-2" style="background:none;border:none;cursor:pointer;color:var(--teal-m);font-size:13px;padding:0">← Terug</button>
+              <span id="nova-stap3-label" style="font-size:13px;font-weight:600;color:var(--text)"></span>
+            </div>
+            <p style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text)">Spreek je actie in:</p>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+              <button id="nova-actie-mic" style="display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:10px;border:2px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+                Spreek in
+              </button>
+              <span id="nova-actie-status" style="font-size:12px;color:var(--text-muted);font-style:italic;flex:1">Druk en spreek...</span>
+            </div>
+            <div id="nova-actie-preview" style="display:none"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -209,72 +246,8 @@ function render(acts,calTasks,myTasks,openDeals,compCount) {
     })
   })
 
-  // NOVA mic knop — koppel listener direct na render
-  const micBtn = document.getElementById('nova-mic-btn')
-  if (micBtn) {
-    micBtn.addEventListener('click', () => {
-      const status = document.getElementById('nova-mic-status')
-      const resultaat = document.getElementById('nova-resultaat')
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-      if (!SR) { alert('Spraakherkenning niet beschikbaar in deze browser.'); return }
-      const recognition = new SR()
-      recognition.lang = 'nl-NL'
-      recognition.onstart = () => {
-        micBtn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid #ef4444;background:#fee2e2;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0'
-        status.textContent = 'Luistert...'
-      }
-      recognition.onresult = async (ev) => {
-        const tekst = ev.results[0][0].transcript
-        status.textContent = '"' + tekst + '"'
-        micBtn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0'
-        resultaat.style.display = 'block'
-        resultaat.innerHTML = '<em>NOVA analyseert...</em>'
-        try {
-          const cd = await supabase.from('companies').select('id,name').order('name')
-          const cl = (cd.data||[]).map(c => c.name + ' (id:' + c.id + ')').join(', ')
-          const r = await fetch('/.netlify/functions/transcribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              model: 'claude-haiku-4-5-20251001',
-              max_tokens: 800,
-              messages: [{ role: 'user', content: 'Je bent NOVA, een CRM assistent. Analyseer: "' + tekst + '"\n\nBedrijven: ' + cl + '\n\nGeef JSON met:\n- type: "notitie" of "taak"\n- company_id: uuid of null\n- inhoud: tekst max 100 woorden\n- due_date: YYYY-MM-DD of null\n- bevestiging: max 20 woorden\n\nAlleen JSON.' }]
-            })
-          })
-          const d = await r.json()
-          const txt = d.content?.[0]?.text || ''
-          const a = JSON.parse(txt.replace(/```json\n?|```\n?/g, '').trim())
-          const mg = new Date(); mg.setDate(mg.getDate() + 1)
-          resultaat.innerHTML = '<strong>NOVA:</strong> ' + esc(a.bevestiging || '') +
-            '<div style="display:flex;gap:8px;margin-top:8px">' +
-            '<button id="nv-ok" class="btn btn-primary btn-sm">✓ ' + (a.type === 'taak' ? 'Taak' : 'Notitie') + ' aanmaken</button>' +
-            '<button id="nv-no" class="btn btn-ghost btn-sm">Annuleren</button></div>'
-          document.getElementById('nv-ok').addEventListener('click', async () => {
-            if (a.type === 'taak') {
-              await supabase.from('tasks').insert({ company_id: a.company_id || null, title: a.inhoud || tekst, due_date: a.due_date || mg.toISOString().split('T')[0], status: 'open', assigned_to: uid })
-            } else {
-              await supabase.from('activities').insert({ company_id: a.company_id || null, type: 'notitie', subject: (a.inhoud || tekst).slice(0, 80), body: a.inhoud || tekst, occurred_at: new Date().toISOString(), logged_by: uid })
-            }
-            resultaat.style.display = 'none'
-            status.textContent = 'Druk op de knop en geef NOVA een opdracht...'
-            loadAll()
-          })
-          document.getElementById('nv-no').addEventListener('click', () => {
-            resultaat.style.display = 'none'
-            status.textContent = 'Druk op de knop en geef NOVA een opdracht...'
-          })
-        } catch(e) {
-          resultaat.innerHTML = 'NOVA kon de opdracht niet verwerken. Probeer opnieuw.'
-        }
-      }
-      recognition.onerror = () => {
-        micBtn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0'
-        status.textContent = 'Fout bij opname. Probeer opnieuw.'
-      }
-      recognition.start()
-    })
-  }
-}
+  // NOVA wizard
+  novaInitWizard(companies||[])}
 
 document.addEventListener('selectDay', e => {
   const clicked = new Date(e.detail + 'T12:00:00')
@@ -282,6 +255,199 @@ document.addEventListener('selectDay', e => {
   calView = 'day'
   loadAll()
 })
+
+function novaInitWizard(companies) {
+  let novaType = null
+  let novaCompanyId = null
+  let novaCompanyNaam = null
+
+  const typeLabels = { meeting: '🤝 Afspraak vastleggen', notitie: '📝 Notitie maken', taak: '✅ Taak aanmaken' }
+
+  function toonStap(n) {
+    document.getElementById('nova-step-1').style.display = n===1 ? 'block' : 'none'
+    document.getElementById('nova-step-2').style.display = n===2 ? 'block' : 'none'
+    document.getElementById('nova-step-3').style.display = n===3 ? 'block' : 'none'
+  }
+
+  function reset() {
+    novaType = null; novaCompanyId = null; novaCompanyNaam = null
+    const inp = document.getElementById('nova-relatie-input')
+    if (inp) inp.value = ''
+    const sel = document.getElementById('nova-relatie-selected')
+    if (sel) { sel.style.display='none'; sel.textContent='' }
+    const sug = document.getElementById('nova-relatie-suggestions')
+    if (sug) sug.style.display='none'
+    const vol = document.getElementById('nova-volgende')
+    if (vol) { vol.disabled=true; vol.style.opacity='.4' }
+    toonStap(1)
+  }
+
+  // Stap 1: type keuze
+  document.querySelectorAll('.nova-keuze-btn').forEach(btn => {
+    btn.addEventListener('mouseenter', () => btn.style.borderColor='var(--teal-m)')
+    btn.addEventListener('mouseleave', () => btn.style.borderColor='var(--border)')
+    btn.addEventListener('click', () => {
+      novaType = btn.dataset.type
+      const lbl = document.getElementById('nova-type-label')
+      if (lbl) lbl.textContent = typeLabels[novaType] || novaType
+      toonStap(2)
+    })
+  })
+
+  // Stap 2: terug
+  document.getElementById('nova-back-1')?.addEventListener('click', () => toonStap(1))
+
+  // Stap 2: relatie input
+  const relatieInput = document.getElementById('nova-relatie-input')
+  const relatieSug = document.getElementById('nova-relatie-suggestions')
+  const relatieSel = document.getElementById('nova-relatie-selected')
+  const volgende = document.getElementById('nova-volgende')
+
+  function selecteerBedrijf(id, naam) {
+    novaCompanyId = id; novaCompanyNaam = naam
+    if (relatieSel) { relatieSel.textContent = '✓ ' + naam; relatieSel.style.display='block' }
+    if (relatieSug) relatieSug.style.display='none'
+    if (relatieInput) relatieInput.value = naam
+    if (volgende) { volgende.disabled=false; volgende.style.opacity='1' }
+  }
+
+  relatieInput?.addEventListener('input', () => {
+    const q = relatieInput.value.toLowerCase().trim()
+    if (!q) { relatieSug.style.display='none'; return }
+    const filtered = companies.filter(c => c.name.toLowerCase().includes(q)).slice(0, 6)
+    if (!filtered.length) { relatieSug.style.display='none'; return }
+    relatieSug.innerHTML = filtered.map(c =>
+      `<div data-id="${c.id}" data-naam="${c.name}" style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)" onmouseenter="this.style.background='var(--bg-muted)'" onmouseleave="this.style.background=''">${c.name}</div>`
+    ).join('')
+    relatieSug.style.display = 'block'
+    relatieSug.querySelectorAll('[data-id]').forEach(el => {
+      el.addEventListener('click', () => selecteerBedrijf(el.dataset.id, el.dataset.naam))
+    })
+  })
+
+  // Stap 2: relatie inspreken
+  function spreekRelatie() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) { alert('Spraakherkenning niet beschikbaar.'); return }
+    const btn = document.getElementById('nova-relatie-mic')
+    const rec = new SR(); rec.lang = 'nl-NL'
+    rec.onstart = () => { btn.textContent = '⏹ Stop'; btn.style.background='#fee2e2'; btn.style.borderColor='#ef4444'; btn.style.color='#ef4444' }
+    rec.onresult = (ev) => {
+      const tekst = ev.results[0][0].transcript
+      if (relatieInput) relatieInput.value = tekst
+      relatieInput.dispatchEvent(new Event('input'))
+      btn.innerHTML = '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Spreek in'
+      btn.style.background='var(--teal-l)'; btn.style.borderColor='var(--teal-m)'; btn.style.color='var(--teal-d)'
+    }
+    rec.onerror = () => { btn.innerHTML = 'Spreek in'; btn.style.background='var(--teal-l)'; btn.style.borderColor='var(--teal-m)'; btn.style.color='var(--teal-d)' }
+    rec.start()
+  }
+  document.getElementById('nova-relatie-mic')?.addEventListener('click', spreekRelatie)
+
+  // Stap 2: volgende
+  volgende?.addEventListener('click', () => {
+    if (!novaCompanyId) return
+    const lbl3 = document.getElementById('nova-stap3-label')
+    if (lbl3) lbl3.textContent = (typeLabels[novaType]||novaType) + ' voor ' + novaCompanyNaam
+    toonStap(3)
+  })
+
+  // Stap 3: terug
+  document.getElementById('nova-back-2')?.addEventListener('click', () => toonStap(2))
+
+  // Stap 3: actie inspreken
+  function spreekActie() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) { alert('Spraakherkenning niet beschikbaar.'); return }
+    const btn = document.getElementById('nova-actie-mic')
+    const status = document.getElementById('nova-actie-status')
+    const preview = document.getElementById('nova-actie-preview')
+    const rec = new SR(); rec.lang = 'nl-NL'
+    rec.onstart = () => {
+      btn.style.background='#fee2e2'; btn.style.borderColor='#ef4444'; btn.style.color='#ef4444'
+      btn.textContent = '⏹ Stop'
+      status.textContent = 'Luistert...'
+    }
+    rec.onresult = async (ev) => {
+      const tekst = ev.results[0][0].transcript
+      status.textContent = '"' + tekst + '"'
+      btn.innerHTML = '<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Spreek in'
+      btn.style.background='var(--teal-l)'; btn.style.borderColor='var(--teal-m)'; btn.style.color='var(--teal-d)'
+      preview.style.display='block'
+      preview.innerHTML = '<div style="padding:10px;background:var(--bg-muted);border-radius:8px;font-size:12px;color:var(--text-muted)"><em>NOVA analyseert...</em></div>'
+
+      try {
+        const mg = new Date(); mg.setDate(mg.getDate()+1)
+        const r = await fetch('/.netlify/functions/transcribe', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001', max_tokens: 800,
+            messages: [{ role: 'user', content:
+              'Je bent NOVA, een CRM assistent. De gebruiker wil een ' + novaType + ' vastleggen voor bedrijf "' + novaCompanyNaam + '".' +
+              '\n\nGesproken opdracht: "' + tekst + '"' +
+              '\n\nGeef JSON met deze velden:' +
+              '\n- onderwerp: korte titel (max 60 tekens)' +
+              '\n- inhoud: nette zakelijke notitie (max 150 woorden)' +
+              '\n- due_date: datum YYYY-MM-DD als er een datum wordt genoemd, anders null' +
+              '\n- bevestiging: vriendelijke samenvatting van wat je gaat doen (max 25 woorden)' +
+              '\n\nAlleen JSON.'
+            }]
+          })
+        })
+        const d = await r.json()
+        const txt = d.content?.[0]?.text || ''
+        const a = JSON.parse(txt.replace(/```json
+?|```
+?/g, '').trim())
+
+        preview.innerHTML = `
+          <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:4px">
+            <div style="padding:10px 14px;background:var(--bg-muted);font-size:12px;font-weight:600;color:var(--text-muted)">
+              <span style="width:14px;height:14px;background:var(--teal-m);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:8px;font-weight:800;margin-right:5px">N</span>
+              NOVA suggestie
+            </div>
+            <div style="padding:12px 14px">
+              <div style="font-size:13px;font-weight:600;margin-bottom:6px">${esc(a.onderwerp||tekst)}</div>
+              <textarea id="nova-inhoud-edit" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;font-family:inherit;line-height:1.5;resize:vertical;box-sizing:border-box;min-height:80px">${esc(a.inhoud||tekst)}</textarea>
+              ${novaType==='taak' ? `<div style="margin-top:8px;display:flex;align-items:center;gap:8px"><label style="font-size:12px;color:var(--text-muted)">Deadline:</label><input type="date" id="nova-datum-edit" value="${a.due_date||mg.toISOString().split('T')[0]}" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px"/></div>` : ''}
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button id="nova-accepteer" class="btn btn-primary btn-sm" style="flex:1">✓ ${novaType==='taak'?'Taak':'novaType==='meeting'?'Afspraak':'Notitie'} opslaan</button>
+                <button id="nova-opnieuw" class="btn btn-secondary btn-sm">🎙️ Opnieuw</button>
+                <button id="nova-annuleer-actie" class="btn btn-ghost btn-sm">✕</button>
+              </div>
+            </div>
+          </div>`
+
+        document.getElementById('nova-accepteer').addEventListener('click', async () => {
+          const inhoud = document.getElementById('nova-inhoud-edit')?.value?.trim() || a.inhoud || tekst
+          const datum = document.getElementById('nova-datum-edit')?.value || mg.toISOString().split('T')[0]
+          if (novaType === 'taak') {
+            await supabase.from('tasks').insert({ company_id: novaCompanyId, title: a.onderwerp || inhoud.slice(0,80), due_date: datum, status: 'open', assigned_to: uid })
+          } else {
+            const type = novaType === 'meeting' ? 'meeting' : 'notitie'
+            await supabase.from('activities').insert({ company_id: novaCompanyId, type, subject: a.onderwerp || inhoud.slice(0,80), body: inhoud, occurred_at: new Date().toISOString(), logged_by: uid })
+          }
+          reset(); loadAll()
+        })
+        document.getElementById('nova-opnieuw').addEventListener('click', () => {
+          preview.style.display='none'; status.textContent='Druk en spreek...'
+        })
+        document.getElementById('nova-annuleer-actie').addEventListener('click', () => reset())
+
+      } catch(e) {
+        preview.innerHTML = '<div style="padding:10px;background:#fee2e2;border-radius:8px;font-size:12px;color:#991b1b">NOVA kon de opdracht niet verwerken. Probeer opnieuw.</div>'
+      }
+    }
+    rec.onerror = () => {
+      btn.innerHTML = '<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Spreek in'
+      btn.style.background='var(--teal-l)'; btn.style.borderColor='var(--teal-m)'; btn.style.color='var(--teal-d)'
+      status.textContent = 'Fout bij opname. Probeer opnieuw.'
+    }
+    rec.start()
+  }
+  document.getElementById('nova-actie-mic')?.addEventListener('click', spreekActie)
+}
+
 
 await loadAll()
 </script>
