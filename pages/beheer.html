@@ -204,10 +204,13 @@ async function loadUsers(){
           <div class="text-muted" style="font-size:11.5px">${u.role}</div>
         </div>
       </div>
-      <select class="filter-select role-select" data-id="${u.id}" style="font-size:12px;padding:5px 8px">
-        <option value="user" ${u.role==='user'?'selected':''}>Gebruiker</option>
-        <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
-      </select>
+      <div style="display:flex;gap:6px;align-items:center">
+        <select class="filter-select role-select" data-id="${u.id}" style="font-size:12px;padding:5px 8px">
+          <option value="user" ${u.role==='user'?'selected':''}>Gebruiker</option>
+          <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+        </select>
+        <button class="btn btn-sm btn-danger ban-btn" data-id="${u.id}" data-naam="${u.full_name}" style="font-size:11px">🚫 Blokkeer</button>
+      </div>
     </div>`).join('')
 
   body.querySelectorAll('.role-select').forEach(sel => {
@@ -215,19 +218,23 @@ async function loadUsers(){
       await supabase.from('profiles').update({role:sel.value}).eq('id',sel.dataset.id)
     })
   })
-  body.querySelectorAll('.del-user-btn').forEach(btn => {
+  body.querySelectorAll('.ban-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!confirm(`Gebruiker '${btn.dataset.naam}' verwijderen? Dit kan niet ongedaan worden.`)) return
-      const resp = await fetch('/.netlify/functions/delete-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: btn.dataset.id })
+      if (!confirm('Account van ' + btn.dataset.naam + ' blokkeren? Ze kunnen dan niet meer inloggen maar alle data blijft intact.')) return
+      btn.disabled = true; btn.textContent = '...'
+      const resp = await fetch('/.netlify/functions/ban-user', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ user_id: btn.dataset.id, action: 'ban' })
       })
       const json = await resp.json()
-      if (json.error) { alert('Fout: ' + json.error); return }
-      loadUsers()
+      if (json.error) { alert('Fout: ' + json.error); btn.disabled=false; btn.textContent='🚫 Blokkeer'; return }
+      btn.textContent = '✓ Geblokkeerd'
+      btn.classList.remove('btn-danger')
+      btn.classList.add('btn-secondary')
+      btn.disabled = true
     })
   })
+
 }
 
 function openTagAdd(){
