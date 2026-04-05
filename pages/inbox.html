@@ -26,10 +26,11 @@
     .inbox-date { font-size: 12px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
     .inbox-summary { font-size: 13px; color: var(--text); margin-top: 10px; line-height: 1.6; padding: 10px 12px; background: var(--bg-muted); border-radius: 8px; }
     .inbox-attachments { font-size: 12px; color: var(--text-muted); margin-top: 6px; padding: 6px 12px; background: var(--bg-muted); border-radius: 6px; border-left: 3px solid var(--border); }
-    .suggestie-box { margin-top: 12px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-    .suggestie-header { padding: 8px 14px; background: var(--bg-muted); font-size: 12px; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
-    .suggestie-body { padding: 12px 14px; }
-    .suggestie-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+    .nova-box { margin-top: 12px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .nova-header { padding: 8px 14px; background: var(--bg-muted); font-size: 12px; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+    .nova-header .nova-logo { width: 14px; height: 14px; background: var(--teal-m); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white; font-size: 8px; font-weight: 700; }
+    .nova-body { padding: 12px 14px; }
+    .suggestie-row { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
     .suggestie-tekst { flex: 1; font-size: 13px; color: var(--text); min-width: 180px; }
     .match-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 3px 10px; border-radius: 20px; font-weight: 500; }
     .match-hoog { background: #d1fae5; color: #065f46; }
@@ -37,9 +38,18 @@
     .match-laag { background: #fee2e2; color: #991b1b; }
     .match-onbekend { background: var(--bg-muted); color: var(--text-muted); }
     .badge-type { font-size: 11px; padding: 1px 7px; border-radius: 8px; background: var(--teal-l); color: var(--teal-d); font-weight: 500; }
-    .inbox-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .notitie-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .actie-keuze { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+    .actie-tab { padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: white; color: var(--text-muted); }
+    .actie-tab.active { background: var(--teal-m); color: white; border-color: var(--teal-m); }
+    .actie-panel { display: none; }
+    .actie-panel.active { display: block; }
+    .notitie-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .notitie-row select { flex: 1; min-width: 160px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; background: white; color: var(--text); }
+    .actie-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+    .actie-form select { flex: 1; min-width: 140px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; background: white; color: var(--text); }
+    .actie-form input[type=date] { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; background: white; color: var(--text); }
+    .actie-form input[type=text] { flex: 1; min-width: 160px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; background: white; color: var(--text); }
+    .inbox-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
     .nieuw-form { margin-top: 10px; padding: 12px; background: var(--bg-muted); border-radius: 8px; border: 1px dashed var(--border); display: none; }
     .nieuw-form.open { display: block; }
     .nieuw-form .form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -47,9 +57,7 @@
     .nieuw-form label { font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 3px; }
     .nieuw-form input { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; background: white; color: var(--text); box-sizing: border-box; }
     .nieuw-form .form-actions { display: flex; gap: 8px; margin-top: 4px; }
-    .inbox-processed { opacity: 0.4; }
     .filter-bar { display: flex; gap: 8px; margin-bottom: 16px; }
-    .verwerkt-label { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -71,7 +79,6 @@
       <div class="filter-bar">
         <button class="btn btn-primary" data-f="nieuw">Nieuw</button>
         <button class="btn btn-secondary" data-f="alle">Alle</button>
-        <button class="btn btn-secondary" data-f="verwerkt">Verwerkt</button>
       </div>
       <div class="card">
         <div class="card-body" id="inbox-body">
@@ -84,19 +91,12 @@
   let emails = [], companies = [], filter = 'nieuw'
 
   const NRG_DOMEINEN = ['nrgsales.nl', 'nrggroup.nl', 'nrg.nl']
-
-  function isNrg(addr) {
-    return NRG_DOMEINEN.some(d => (addr || '').toLowerCase().includes('@' + d))
-  }
-
-  // Naam gissen uit e-mailadres — nooit NRG data
+  function isNrg(addr) { return NRG_DOMEINEN.some(d => (addr||'').toLowerCase().includes('@'+d)) }
   function guessNaam(addr) {
     if (!addr || isNrg(addr)) return ''
-    const match = addr.match(/^([^<@]+)/)
-    return match ? match[1].trim().replace(/[._]/g, ' ') : ''
+    const m = addr.match(/^([^<@]+)/)
+    return m ? m[1].trim().replace(/[._]/g, ' ') : ''
   }
-
-  // Domein gissen — nooit NRG of generieke domeinen
   function guessDomain(addr) {
     if (!addr || isNrg(addr)) return ''
     const domain = addr.split('@')[1]?.toLowerCase()
@@ -105,108 +105,108 @@
     return generiek.includes(domain) ? '' : 'https://' + domain
   }
 
+  function morgen() {
+    const d = new Date(); d.setDate(d.getDate() + 1)
+    return d.toISOString().split('T')[0]
+  }
+
   async function load() {
-    let query = supabase
-      .from('email_inbox')
-      .select('*')
-      .order('received_at', { ascending: false })
-      .limit(100)
-
+    let query = supabase.from('email_inbox').select('*').order('received_at', { ascending: false }).limit(100)
     if (!isAdmin) query = query.eq('assigned_to', uid)
-
     const [{ data: emailData }, { data: companyData }] = await Promise.all([
       query,
       supabase.from('companies').select('id, name').order('name')
     ])
-
     emails = emailData || []
     companies = companyData || []
     render()
   }
 
   function render() {
-    const filtered = filter === 'nieuw' ? emails.filter(e => !e.verwerkt)
-      : filter === 'verwerkt' ? emails.filter(e => e.verwerkt)
-      : emails
-
+    const filtered = filter === 'nieuw' ? emails.filter(e => !e.verwerkt) : emails
     const body = document.getElementById('inbox-body')
-    if (!filtered.length) {
-      body.innerHTML = '<div class="empty-state"><p>Geen e-mails.</p></div>'
-      return
-    }
+    if (!filtered.length) { body.innerHTML = '<div class="empty-state"><p>Geen e-mails.</p></div>'; return }
 
-    const companyOptions = companies.map(c =>
-      `<option value="${c.id}">${esc(c.name)}</option>`
-    ).join('')
+    const companyOptions = companies.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')
 
     body.innerHTML = filtered.map(e => {
       const z = e.match_zekerheid || 'onbekend'
       const zl = { hoog: 'Hoge zekerheid', middel: 'Gemiddelde zekerheid', laag: 'Lage zekerheid', onbekend: 'Onbekend' }[z] || z
       const tl = { bedrijf: 'Bedrijf', contactpersoon: 'Contact', nieuw_contact: 'Nieuw contact', nieuw_bedrijf: 'Nieuw bedrijf', onbekend: 'Onbekend' }[e.match_type] || '?'
 
-      // Voorinvullen op basis van externe geadresseerden — NOOIT NRG data
-      const eersteExtern = e.geadresseerden
-        ? e.geadresseerden.split(',').map(a => a.trim()).find(a => !isNrg(a))
-        : null
+      const eersteExtern = e.geadresseerden ? e.geadresseerden.split(',').map(a=>a.trim()).find(a=>!isNrg(a)) : null
       const voorNaam = e.match_naam || (eersteExtern ? guessNaam(eersteExtern) : '')
       const voorEmail = eersteExtern && !isNrg(eersteExtern) ? eersteExtern : ''
       const voorWebsite = eersteExtern ? guessDomain(eersteExtern) : ''
 
-      const koppelKnop = e.suggestie_actie === 'koppel_aan_klant' && e.match_id
-        ? `<button class="btn btn-primary btn-sm" data-action="koppelen" data-id="${e.id}" data-match-id="${e.match_id}" data-match-type="${e.match_type}">✓ Koppelen aan ${esc(e.match_naam || 'klant')}</button>`
-        : ''
-
       const selectedOption = e.match_id && e.match_type === 'bedrijf'
-        ? `<option value="${e.match_id}" selected>${esc(e.match_naam || '')}</option>`
-        : ''
+        ? `<option value="${e.match_id}" selected>${esc(e.match_naam||'')}</option>` : ''
+
+      const koppelKnop = e.suggestie_actie === 'koppel_aan_klant' && e.match_id
+        ? `<button class="btn btn-primary btn-sm" data-action="koppelen" data-id="${e.id}" data-match-id="${e.match_id}" data-match-type="${e.match_type}">✓ Koppelen aan ${esc(e.match_naam||'klant')}</button>` : ''
 
       return `
-        <div class="inbox-item ${e.verwerkt ? 'inbox-processed' : ''}" data-id="${e.id}">
+        <div class="inbox-item" data-id="${e.id}">
           <div class="inbox-header">
             <div>
-              <div class="inbox-from">${esc(e.from_email || '—')}</div>
+              <div class="inbox-from">${esc(e.from_email||'—')}</div>
               ${e.geadresseerden ? `<div class="inbox-to">Extern: ${esc(e.geadresseerden)}</div>` : ''}
-              <div class="inbox-subject">${esc(e.subject || '(geen onderwerp)')}</div>
+              <div class="inbox-subject">${esc(e.subject||'(geen onderwerp)')}</div>
             </div>
-            <div class="inbox-date">${e.received_at ? new Date(e.received_at).toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
+            <div class="inbox-date">${e.received_at ? new Date(e.received_at).toLocaleString('nl-NL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : ''}</div>
           </div>
 
           ${e.samenvatting ? `<div class="inbox-summary">${esc(e.samenvatting)}</div>` : ''}
           ${e.bijlagen_samenvatting ? `<div class="inbox-attachments">📎 ${esc(e.bijlagen_samenvatting)}</div>` : ''}
 
-          ${!e.verwerkt ? `
-            <div class="suggestie-box">
-              <div class="suggestie-header">
-                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                Claude suggestie
+          <div class="nova-box">
+            <div class="nova-header">
+              <span class="nova-logo">N</span>
+              NOVA suggestie
+            </div>
+            <div class="nova-body">
+              <div class="suggestie-row">
+                <div>
+                  ${e.match_naam
+                    ? `<div class="match-chip match-${z}">${esc(e.match_naam)} <span class="badge-type">${tl}</span></div>
+                       <div style="font-size:12px;color:var(--text-muted);margin-top:3px">${zl}</div>`
+                    : `<div class="match-chip match-onbekend">Geen match gevonden</div>`}
+                </div>
+                ${e.suggestie_toelichting ? `<div class="suggestie-tekst">${esc(e.suggestie_toelichting)}</div>` : ''}
               </div>
-              <div class="suggestie-body">
-                <div class="suggestie-row">
-                  <div>
-                    ${e.match_naam
-                      ? `<div class="match-chip match-${z}">${esc(e.match_naam)} <span class="badge-type">${tl}</span></div>
-                         <div style="font-size:12px;color:var(--text-muted);margin-top:3px">${zl}</div>`
-                      : `<div class="match-chip match-onbekend">Geen match gevonden</div>`}
-                  </div>
-                  ${e.suggestie_toelichting ? `<div class="suggestie-tekst">${esc(e.suggestie_toelichting)}</div>` : ''}
-                </div>
 
-                <div class="inbox-actions">
-                  ${koppelKnop}
-                  <button class="btn btn-secondary btn-sm" data-action="negeren" data-id="${e.id}">Negeren</button>
-                </div>
+              ${koppelKnop ? `<div style="margin-bottom:10px">${koppelKnop}</div>` : ''}
 
+              <div class="actie-keuze">
+                <button class="actie-tab active" data-tab="notitie" data-id="${e.id}">📝 Notitie toevoegen</button>
+                <button class="actie-tab" data-tab="actie" data-id="${e.id}">✅ Actie aanmaken</button>
+                <button class="actie-tab" data-tab="nieuw" data-id="${e.id}">🏢 Nieuw bedrijf</button>
+              </div>
+
+              <div class="actie-panel active" id="panel-notitie-${e.id}">
                 <div class="notitie-row">
-                  <select data-select="${e.id}">
+                  <select data-select-notitie="${e.id}">
                     <option value="">— Kies bedrijf —</option>
-                    ${selectedOption}
-                    ${companyOptions}
+                    ${selectedOption}${companyOptions}
                   </select>
                   <button class="btn btn-secondary btn-sm" data-action="notitie" data-id="${e.id}">+ Notitie toevoegen</button>
-                  <button class="btn btn-ghost btn-sm" data-action="toggle-nieuw" data-id="${e.id}">+ Nieuw bedrijf</button>
                 </div>
+              </div>
 
-                <div class="nieuw-form" id="nieuw-form-${e.id}">
+              <div class="actie-panel" id="panel-actie-${e.id}">
+                <div class="actie-form">
+                  <select data-select-actie="${e.id}">
+                    <option value="">— Kies bedrijf —</option>
+                    ${selectedOption}${companyOptions}
+                  </select>
+                  <input type="text" id="actie-titel-${e.id}" placeholder="Actie omschrijving" value="${esc(e.subject||'')}"/>
+                  <input type="date" id="actie-datum-${e.id}" value="${morgen()}"/>
+                  <button class="btn btn-primary btn-sm" data-action="maak-actie" data-id="${e.id}">✅ Actie aanmaken</button>
+                </div>
+              </div>
+
+              <div class="actie-panel" id="panel-nieuw-${e.id}">
+                <div class="nieuw-form open" id="nieuw-form-${e.id}">
                   <div class="form-row">
                     <div class="form-field">
                       <label>Bedrijfsnaam *</label>
@@ -229,14 +229,30 @@
                   </div>
                   <div class="form-actions">
                     <button class="btn btn-primary btn-sm" data-action="maak-bedrijf" data-id="${e.id}">Bedrijf aanmaken & notitie toevoegen</button>
-                    <button class="btn btn-ghost btn-sm" data-action="sluit-nieuw" data-id="${e.id}">Annuleren</button>
                   </div>
                 </div>
               </div>
+
+              <div class="inbox-actions">
+                <button class="btn btn-ghost btn-sm" data-action="negeren" data-id="${e.id}">Negeren</button>
+              </div>
             </div>
-          ` : `<div class="verwerkt-label">✓ Verwerkt</div>`}
+          </div>
         </div>`
     }).join('')
+
+    // Tab wisselen
+    body.querySelectorAll('.actie-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const id = tab.dataset.id
+        const type = tab.dataset.tab
+        body.querySelectorAll(`.actie-tab[data-id="${id}"]`).forEach(t => t.classList.remove('active'))
+        tab.classList.add('active')
+        ;['notitie','actie','nieuw'].forEach(t => {
+          document.getElementById(`panel-${t}-${id}`)?.classList.toggle('active', t === type)
+        })
+      })
+    })
 
     // Koppelen aan bestaande klant
     body.querySelectorAll('[data-action="koppelen"]').forEach(btn => {
@@ -251,19 +267,17 @@
           body: email.samenvatting || email.raw_email?.slice(0, 500),
           occurred_at: email.received_at, logged_by: uid
         })
-        if (!error) {
-          await supabase.from('email_inbox').update({ verwerkt: true }).eq('id', id)
-          await load()
-        } else { btn.disabled = false; btn.textContent = '✓ Koppelen'; alert('Fout: ' + error.message) }
+        if (!error) { await supabase.from('email_inbox').delete().eq('id', id); await load() }
+        else { btn.disabled = false; btn.textContent = '✓ Koppelen'; alert('Fout: ' + error.message) }
       })
     })
 
-    // Notitie toevoegen aan gekozen bedrijf
+    // Notitie bij bedrijf
     body.querySelectorAll('[data-action="notitie"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id
         const email = emails.find(e => e.id === id)
-        const companyId = body.querySelector(`[data-select="${id}"]`)?.value
+        const companyId = body.querySelector(`[data-select-notitie="${id}"]`)?.value
         if (!companyId) { alert('Kies eerst een bedrijf.'); return }
         btn.disabled = true; btn.textContent = 'Bezig...'
         const { error } = await supabase.from('activities').insert({
@@ -272,27 +286,35 @@
           body: email.samenvatting || email.raw_email?.slice(0, 500),
           occurred_at: email.received_at, logged_by: uid
         })
-        if (!error) {
-          await supabase.from('email_inbox').update({ verwerkt: true }).eq('id', id)
-          await load()
-        } else { btn.disabled = false; btn.textContent = '+ Notitie toevoegen'; alert('Fout: ' + error.message) }
+        if (!error) { await supabase.from('email_inbox').delete().eq('id', id); await load() }
+        else { btn.disabled = false; btn.textContent = '+ Notitie toevoegen'; alert('Fout: ' + error.message) }
       })
     })
 
-    // Toggle nieuw bedrijf formulier
-    body.querySelectorAll('[data-action="toggle-nieuw"]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.getElementById(`nieuw-form-${btn.dataset.id}`)?.classList.toggle('open')
+    // Actie aanmaken
+    body.querySelectorAll('[data-action="maak-actie"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id
+        const email = emails.find(e => e.id === id)
+        const companyId = body.querySelector(`[data-select-actie="${id}"]`)?.value
+        const titel = document.getElementById(`actie-titel-${id}`)?.value?.trim()
+        const datum = document.getElementById(`actie-datum-${id}`)?.value
+        if (!companyId) { alert('Kies eerst een bedrijf.'); return }
+        if (!titel) { alert('Vul een omschrijving in.'); return }
+        btn.disabled = true; btn.textContent = 'Bezig...'
+        const { error } = await supabase.from('tasks').insert({
+          company_id: companyId,
+          title: titel,
+          due_date: datum || morgen(),
+          status: 'open',
+          assigned_to: uid
+        })
+        if (!error) { await supabase.from('email_inbox').delete().eq('id', id); await load() }
+        else { btn.disabled = false; btn.textContent = '✅ Actie aanmaken'; alert('Fout: ' + error.message) }
       })
     })
 
-    body.querySelectorAll('[data-action="sluit-nieuw"]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.getElementById(`nieuw-form-${btn.dataset.id}`)?.classList.remove('open')
-      })
-    })
-
-    // Nieuw bedrijf aanmaken + notitie toevoegen
+    // Nieuw bedrijf aanmaken
     body.querySelectorAll('[data-action="maak-bedrijf"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id
@@ -300,46 +322,32 @@
         const naam = document.getElementById(`nieuw-naam-${id}`)?.value?.trim()
         if (!naam) { alert('Vul een bedrijfsnaam in.'); return }
         btn.disabled = true; btn.textContent = 'Bezig...'
-
         const { data: nieuwBedrijf, error: bedrijfError } = await supabase
           .from('companies')
           .insert({
             name: naam,
             website: document.getElementById(`nieuw-website-${id}`)?.value?.trim() || null,
             stad: document.getElementById(`nieuw-stad-${id}`)?.value?.trim() || null,
-            status: 'suspect',
-            owner_id: uid
+            status: 'suspect', owner_id: uid
           })
-          .select('id')
-          .single()
-
-        if (bedrijfError) {
-          btn.disabled = false; btn.textContent = 'Bedrijf aanmaken & notitie toevoegen'
-          alert('Fout: ' + bedrijfError.message); return
-        }
-
+          .select('id').single()
+        if (bedrijfError) { btn.disabled = false; btn.textContent = 'Bedrijf aanmaken & notitie toevoegen'; alert('Fout: ' + bedrijfError.message); return }
         const contactEmail = document.getElementById(`nieuw-email-${id}`)?.value?.trim()
         if (contactEmail) {
-          await supabase.from('contacts').insert({
-            company_id: nieuwBedrijf.id,
-            name: naam,
-            email: contactEmail
-          })
+          await supabase.from('contacts').insert({ company_id: nieuwBedrijf.id, name: naam, email: contactEmail })
         }
-
         await supabase.from('activities').insert({
           company_id: nieuwBedrijf.id, type: 'mail',
           subject: email.subject || '(geen onderwerp)',
           body: email.samenvatting || email.raw_email?.slice(0, 500),
           occurred_at: email.received_at, logged_by: uid
         })
-
-        await supabase.from('email_inbox').update({ verwerkt: true }).eq('id', id)
+        await supabase.from('email_inbox').delete().eq('id', id)
         await load()
       })
     })
 
-    // Negeren = verwijderen uit database
+    // Negeren = verwijderen
     body.querySelectorAll('[data-action="negeren"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         await supabase.from('email_inbox').delete().eq('id', btn.dataset.id)
