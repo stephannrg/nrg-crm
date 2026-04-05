@@ -20,7 +20,7 @@
 <script type="module">
 import { initShell } from '../js/shell.js'
 import { supabase } from '../js/supabase.js'
-import { esc, formatDate, formatDateShort, formatEuro, stageLabel, activityIcon, activityLabel, isOverdue, isoDate } from '../js/utils.js'
+import { esc, formatDateShort, stageLabel, activityLabel, isOverdue } from '../js/utils.js'
 import { openNieuweActie } from './actie.js'
 
 const ctx = await initShell('dashboard')
@@ -28,7 +28,6 @@ if (!ctx) throw new Error()
 const { session, profile } = ctx
 const uid = session.user.id
 const naam = profile?.full_name?.split(' ')[0] || ''
-
 const main = document.getElementById('main-content')
 main.innerHTML = `
   <div class="topbar"><h1>Hi${naam ? ', ' + esc(naam) : ''} 👋</h1></div>
@@ -36,299 +35,108 @@ main.innerHTML = `
 `
 await openNieuweActie(main)
 
-// ── Kalender state ────────────────────────────────────────────────────────────
 let calView = 'day'
 let dayOff = 0, weekOff = 0, monthOff = 0, yearOff = 0
-
-const DAYS_NL   = ['Ma','Di','Wo','Do','Vr','Za','Zo']
+const DAYS_NL = ['Ma','Di','Wo','Do','Vr','Za','Zo']
 const DAYS_FULL = ['Zondag','Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag']
 const MONTHS_NL = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec']
 const MONTHS_FULL = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december']
 
-// ── Datum helpers ─────────────────────────────────────────────────────────────
 function localIso(d) {
-  const y = d.getFullYear()
-  const m = String(d.getMonth()+1).padStart(2,'0')
-  const dd = String(d.getDate()).padStart(2,'0')
-  return `${y}-${m}-${dd}`
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')
 }
-
-function getSelectedDay() {
-  const d = new Date()
-  d.setDate(d.getDate() + dayOff)
-  return d
-}
-
+function getSelectedDay() { const d = new Date(); d.setDate(d.getDate()+dayOff); return d }
 function getWeekDays(off) {
-  const now = new Date()
-  const wd  = now.getDay() === 0 ? 6 : now.getDay() - 1
-  const mon = new Date(now)
-  mon.setDate(now.getDate() - wd + off * 7)
-  mon.setHours(0,0,0,0)
-  return Array.from({length:7}, (_,i) => { const d = new Date(mon); d.setDate(mon.getDate()+i); return d })
+  const now = new Date(), wd = now.getDay()===0?6:now.getDay()-1, mon = new Date(now)
+  mon.setDate(now.getDate()-wd+off*7); mon.setHours(0,0,0,0)
+  return Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d })
 }
-
-function isToday(d) { return localIso(d) === localIso(new Date()) }
-
+function isToday(d) { return localIso(d)===localIso(new Date()) }
 function getRange() {
   const now = new Date()
-  if (calView === 'day') {
-    const d = getSelectedDay()
-    const s = localIso(d)
-    return { start: s + 'T00:00:00', end: s + 'T23:59:59', startDate: s, endDate: s }
-  }
-  if (calView === 'week') {
-    const days = getWeekDays(weekOff)
-    const s = localIso(days[0]), e = localIso(days[6])
-    return { start: s + 'T00:00:00', end: e + 'T23:59:59', startDate: s, endDate: e }
-  }
-  if (calView === 'month') {
-    const d = new Date(now.getFullYear(), now.getMonth() + monthOff, 1)
-    const e = new Date(d.getFullYear(), d.getMonth()+1, 0)
-    const s = localIso(d), en = localIso(e)
-    return { start: s + 'T00:00:00', end: en + 'T23:59:59', startDate: s, endDate: en }
-  }
-  // year
-  const y = now.getFullYear() + yearOff
-  return { start: `${y}-01-01T00:00:00`, end: `${y}-12-31T23:59:59`, startDate: `${y}-01-01`, endDate: `${y}-12-31` }
+  if (calView==='day') { const s=localIso(getSelectedDay()); return {start:s+'T00:00:00',end:s+'T23:59:59',startDate:s,endDate:s} }
+  if (calView==='week') { const days=getWeekDays(weekOff),s=localIso(days[0]),e=localIso(days[6]); return {start:s+'T00:00:00',end:e+'T23:59:59',startDate:s,endDate:e} }
+  if (calView==='month') { const d=new Date(now.getFullYear(),now.getMonth()+monthOff,1),e=new Date(d.getFullYear(),d.getMonth()+1,0),s=localIso(d),en=localIso(e); return {start:s+'T00:00:00',end:en+'T23:59:59',startDate:s,endDate:en} }
+  const y=now.getFullYear()+yearOff; return {start:`${y}-01-01T00:00:00`,end:`${y}-12-31T23:59:59`,startDate:`${y}-01-01`,endDate:`${y}-12-31`}
 }
 
-// ── Data ophalen ──────────────────────────────────────────────────────────────
 async function loadAll() {
-  const { start, end, startDate, endDate } = getRange()
-  const weekEnd7 = localIso(new Date(Date.now() + 7*86400000))
-
-  const [{ data: acts }, { data: calTasks }, { data: myTasks }, { data: openDeals }] = await Promise.all([
-    supabase.from('activities')
-      .select('id,type,subject,body,occurred_at,companies(id,name)')
-      .gte('occurred_at', start).lte('occurred_at', end)
-      .eq('logged_by', uid)
-      .order('occurred_at'),
-    supabase.from('tasks')
-      .select('id,title,due_date,status,companies(id,name)')
-      .eq('assigned_to', uid).eq('status', 'open')
-      .gte('due_date', startDate).lte('due_date', endDate)
-      .order('due_date'),
-    supabase.from('tasks')
-      .select('id,title,due_date,status,companies(id,name)')
-      .eq('assigned_to', uid).eq('status', 'open')
-      .lte('due_date', weekEnd7).order('due_date').limit(8),
-    supabase.from('deals')
-      .select('id,title,stage,value,companies(id,name)')
-      .not('stage', 'in', '("gewonnen","verloren")')
-      .eq('owner_id', uid).order('updated_at', {ascending:false}).limit(5)
+  const {start,end,startDate,endDate} = getRange()
+  const weekEnd7 = localIso(new Date(Date.now()+7*86400000))
+  const [{data:acts},{data:calTasks},{data:myTasks},{data:openDeals}] = await Promise.all([
+    supabase.from('activities').select('id,type,subject,body,occurred_at,companies(id,name)').gte('occurred_at',start).lte('occurred_at',end).eq('logged_by',uid).order('occurred_at'),
+    supabase.from('tasks').select('id,title,due_date,status,companies(id,name)').eq('assigned_to',uid).eq('status','open').gte('due_date',startDate).lte('due_date',endDate).order('due_date'),
+    supabase.from('tasks').select('id,title,due_date,status,companies(id,name)').eq('assigned_to',uid).eq('status','open').lte('due_date',weekEnd7).order('due_date').limit(8),
+    supabase.from('deals').select('id,title,stage,value,companies(id,name)').not('stage','in','("gewonnen","verloren")').eq('owner_id',uid).order('updated_at',{ascending:false}).limit(5)
   ])
-
-  // Companies count apart — 503 mag dashboard niet blokkeren
   let compCount = 0
-  try {
-    const { data: cd } = await supabase.from('companies').select('id').limit(500)
-    compCount = cd?.length || 0
-  } catch(e) {}
-
-  render(acts||[], calTasks||[], myTasks||[], openDeals||[], compCount)
+  try { const {data:cd} = await supabase.from('companies').select('id').limit(500); compCount=cd?.length||0 } catch(e) {}
+  render(acts||[],calTasks||[],myTasks||[],openDeals||[],compCount)
 }
 
-// ── Event map bouwen ──────────────────────────────────────────────────────────
-function buildEvMap(acts, tasks) {
-  const m = {}
-  acts.forEach(a => {
-    const k = a.occurred_at.slice(0,10)
-    const t = new Date(a.occurred_at)
-    const hh = String(t.getHours()).padStart(2,'0')
-    const mm = String(t.getMinutes()).padStart(2,'0')
-    ;(m[k] || (m[k] = [])).push({
-      type: a.type, label: a.subject || activityLabel(a.type),
-      cid: a.companies?.id, cname: a.companies?.name,
-      time: `${hh}:${mm}`, body: a.body || null
-    })
-  })
-  tasks.forEach(t => {
-    const k = t.due_date
-    ;(m[k] || (m[k] = [])).push({
-      type: 'task', label: t.title,
-      cid: t.companies?.id, cname: t.companies?.name,
-      time: null, body: null
-    })
-  })
+function buildEvMap(acts,tasks) {
+  const m={}
+  acts.forEach(a=>{ const k=a.occurred_at.slice(0,10),t=new Date(a.occurred_at),hh=String(t.getHours()).padStart(2,'0'),mm=String(t.getMinutes()).padStart(2,'0');(m[k]||(m[k]=[])).push({type:a.type,label:a.subject||activityLabel(a.type),cid:a.companies?.id,cname:a.companies?.name,time:`${hh}:${mm}`,body:a.body||null}) })
+  tasks.forEach(t=>{ (m[t.due_date]||(m[t.due_date]=[])).push({type:'task',label:t.title,cid:t.companies?.id,cname:t.companies?.name,time:null,body:null}) })
   return m
 }
 
-// ── Tooltip ───────────────────────────────────────────────────────────────────
-function evHtml(ev, small=false) {
-  const click = ev.cid ? `location.href='/pages/klant.html?id=${ev.cid}'` : `document.dispatchEvent(new CustomEvent('selectDay',{detail:'${ev._date||''}'}))` 
-  return `<div class="day-event type-${ev.type} cal-event-wrap" onclick="${click}" style="${small?'font-size:9.5px;padding:2px 4px;margin-bottom:1px':''}">
-    <span>${ev.type==='task'?'📌 ':''}${esc(ev.label.length>(small?12:20)?ev.label.slice(0,small?12:20)+'…':ev.label)}</span>
-    <div class="cal-tooltip-box">
-      <div class="ctt">${esc(ev.label)}</div>
-      ${ev.cname?`<div class="ctt-sub">🏢 ${esc(ev.cname)}</div>`:''}
-      ${ev.time?`<div class="ctt-sub">🕐 ${ev.time}</div>`:''}
-      ${ev.body?`<div class="ctt-body">${esc(ev.body.slice(0,80))}${ev.body.length>80?'…':''}</div>`:''}
-    </div>
-  </div>`
+function evHtml(ev,small=false) {
+  const click=ev.cid?`location.href='/pages/klant.html?id=${ev.cid}'`:`document.dispatchEvent(new CustomEvent('selectDay',{detail:'${ev._date||''}'}))`
+  return `<div class="day-event type-${ev.type} cal-event-wrap" onclick="${click}" style="${small?'font-size:9.5px;padding:2px 4px;margin-bottom:1px':''}"><span>${ev.type==='task'?'📌 ':''}${esc(ev.label.length>(small?12:20)?ev.label.slice(0,small?12:20)+'…':ev.label)}</span><div class="cal-tooltip-box"><div class="ctt">${esc(ev.label)}</div>${ev.cname?`<div class="ctt-sub">🏢 ${esc(ev.cname)}</div>`:''}${ev.time?`<div class="ctt-sub">🕐 ${ev.time}</div>`:''}${ev.body?`<div class="ctt-body">${esc(ev.body.slice(0,80))}${ev.body.length>80?'…':''}</div>`:''}</div></div>`
 }
 
-// ── Dag weergave ──────────────────────────────────────────────────────────────
 function buildDay(evMap) {
-  const d   = getSelectedDay()
-  const k   = localIso(d)
-  const evs = (evMap[k] || []).sort((a,b) => (a.time||'99:99') < (b.time||'99:99') ? -1 : 1)
-  const typeColor = {bel:'#4a6cf7',mail:'#00af70',meeting:'#e8943a',notitie:'#aaa',task:'#9b59b6'}
-
-  if (!evs.length) return `
-    <div style="padding:32px;text-align:center;color:var(--muted)">
-      <div style="font-size:32px;margin-bottom:10px">📅</div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:6px">Geen activiteiten op ${DAYS_FULL[d.getDay()]} ${d.getDate()} ${MONTHS_FULL[d.getMonth()]}</div>
-      <div style="font-size:13px">Gebruik <strong>+ Actie loggen</strong> om iets te registreren.</div>
-    </div>`
-
-  return evs.map(ev => `
-    <div style="display:flex;align-items:flex-start;gap:14px;padding:13px 18px;border-bottom:1px solid var(--border);cursor:${ev.cid?'pointer':'default'}" onclick="${ev.cid?`location.href='/pages/klant.html?id=${ev.cid}'`:'void(0)'}">
-      <div style="width:42px;text-align:right;flex-shrink:0;padding-top:1px">
-        <span style="font-size:12px;font-weight:600;color:var(--muted)">${ev.time||'—'}</span>
-      </div>
-      <div style="width:3px;border-radius:2px;background:${typeColor[ev.type]||'#aaa'};align-self:stretch;flex-shrink:0;min-height:40px"></div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:600;margin-bottom:3px">${ev.type==='task'?'📌 ':''}${esc(ev.label)}</div>
-        ${ev.cname?`<div style="font-size:12.5px;color:var(--teal-m);font-weight:500">🏢 ${esc(ev.cname)}</div>`:''}
-        ${ev.body?`<div style="font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.5">${esc(ev.body.slice(0,120))}${ev.body.length>120?'…':''}</div>`:''}
-      </div>
-    </div>`).join('')
+  const d=getSelectedDay(),k=localIso(d),evs=(evMap[k]||[]).sort((a,b)=>(a.time||'99:99')<(b.time||'99:99')?-1:1)
+  const tc={bel:'#4a6cf7',mail:'#00af70',meeting:'#e8943a',notitie:'#aaa',task:'#9b59b6'}
+  if(!evs.length) return `<div style="padding:32px;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:10px">📅</div><div style="font-size:15px;font-weight:600;margin-bottom:6px">Geen activiteiten op ${DAYS_FULL[d.getDay()]} ${d.getDate()} ${MONTHS_FULL[d.getMonth()]}</div><div style="font-size:13px">Gebruik <strong>+ Actie loggen</strong> om iets te registreren.</div></div>`
+  return evs.map(ev=>`<div style="display:flex;align-items:flex-start;gap:14px;padding:13px 18px;border-bottom:1px solid var(--border);cursor:${ev.cid?'pointer':'default'}" onclick="${ev.cid?`location.href='/pages/klant.html?id=${ev.cid}'`:'void(0)'}"><div style="width:42px;text-align:right;flex-shrink:0;padding-top:1px"><span style="font-size:12px;font-weight:600;color:var(--muted)">${ev.time||'—'}</span></div><div style="width:3px;border-radius:2px;background:${tc[ev.type]||'#aaa'};align-self:stretch;flex-shrink:0;min-height:40px"></div><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;margin-bottom:3px">${ev.type==='task'?'📌 ':''}${esc(ev.label)}</div>${ev.cname?`<div style="font-size:12.5px;color:var(--teal-m);font-weight:500">🏢 ${esc(ev.cname)}</div>`:''}${ev.body?`<div style="font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.5">${esc(ev.body.slice(0,120))}${ev.body.length>120?'…':''}</div>`:''}</div></div>`).join('')
 }
 
-// ── Week weergave ─────────────────────────────────────────────────────────────
 function buildWeek(evMap) {
-  const days = getWeekDays(weekOff)
-  return `<div class="week-grid">
-    ${days.map((d,i) => {
-      const k = localIso(d), evs = evMap[k]||[], vis = evs.slice(0,3), more = evs.length-3
-      return `<div class="week-day ${isToday(d)?'today':''} ${i>=5?'weekend':''}">
-        <div class="week-day-head" onclick="document.dispatchEvent(new CustomEvent('selectDay',{detail:'${k}'}))" style="cursor:pointer" title="Toon dagweergave">
-          <span class="wd-name">${DAYS_NL[i]}</span>
-          <span class="wd-num">${d.getDate()}</span>
-        </div>
-        <div class="week-day-events">
-          ${vis.map(ev => evHtml({...ev,_date:k})).join('')}
-          ${more>0?`<div class="cal-more" onclick="document.dispatchEvent(new CustomEvent('selectDay',{detail:'${k}'}))" style="cursor:pointer">+${more} meer</div>`:''}
-        </div>
-      </div>`
-    }).join('')}
-  </div>`
+  const days=getWeekDays(weekOff)
+  return `<div class="week-grid">${days.map((d,i)=>{ const k=localIso(d),evs=evMap[k]||[],vis=evs.slice(0,3),more=evs.length-3; return `<div class="week-day ${isToday(d)?'today':''} ${i>=5?'weekend':''}"><div class="week-day-head" onclick="document.dispatchEvent(new CustomEvent('selectDay',{detail:'${k}'}))" style="cursor:pointer"><span class="wd-name">${DAYS_NL[i]}</span><span class="wd-num">${d.getDate()}</span></div><div class="week-day-events">${vis.map(ev=>evHtml({...ev,_date:k})).join('')}${more>0?`<div class="cal-more" onclick="document.dispatchEvent(new CustomEvent('selectDay',{detail:'${k}'}))" style="cursor:pointer">+${more} meer</div>`:''}</div></div>` }).join('')}</div>`
 }
 
-// ── Maand weergave ────────────────────────────────────────────────────────────
 function buildMonth(evMap) {
-  const now  = new Date()
-  const base = new Date(now.getFullYear(), now.getMonth() + monthOff, 1)
-  const y = base.getFullYear(), mo = base.getMonth()
-  const firstWd = base.getDay() === 0 ? 6 : base.getDay() - 1
-  const lastDay = new Date(y, mo+1, 0).getDate()
-  const todayStr = localIso(now)
-
-  const days = []
-  for (let i = firstWd-1; i >= 0; i--) days.push({d: new Date(y,mo,-i), other: true})
-  for (let i = 1; i <= lastDay; i++) days.push({d: new Date(y,mo,i), other: false})
-  while (days.length % 7 !== 0) { const l = days[days.length-1].d; days.push({d: new Date(l.getTime()+86400000), other: true}) }
-
-  return `<div class="month-grid">
-    ${DAYS_NL.map(d=>`<div class="month-day-hdr">${d}</div>`).join('')}
-    ${days.map(({d,other}) => {
-      const k = localIso(d), evs = evMap[k]||[], tod = k===todayStr, wknd = [0,6].includes(d.getDay())
-      return `<div class="month-day ${tod?'today':''} ${other?'other-month':''} ${wknd?'weekend':''}" onclick="document.dispatchEvent(new CustomEvent('selectDay',{detail:'${k}'}))" style="cursor:pointer">
-        <div class="month-day-num">${d.getDate()}</div>
-        ${evs.slice(0,2).map(ev => evHtml({...ev,_date:k}, true)).join('')}
-        ${evs.length>2?`<div class="cal-more">+${evs.length-2}</div>`:''}
-      </div>`
-    }).join('')}
-  </div>`
+  const now=new Date(),base=new Date(now.getFullYear(),now.getMonth()+monthOff,1),y=base.getFullYear(),mo=base.getMonth()
+  const firstWd=base.getDay()===0?6:base.getDay()-1,lastDay=new Date(y,mo+1,0).getDate(),todayStr=localIso(now),days=[]
+  for(let i=firstWd-1;i>=0;i--) days.push({d:new Date(y,mo,-i),other:true})
+  for(let i=1;i<=lastDay;i++) days.push({d:new Date(y,mo,i),other:false})
+  while(days.length%7!==0){const l=days[days.length-1].d;days.push({d:new Date(l.getTime()+86400000),other:true})}
+  return `<div class="month-grid">${DAYS_NL.map(d=>`<div class="month-day-hdr">${d}</div>`).join('')}${days.map(({d,other})=>{ const k=localIso(d),evs=evMap[k]||[],tod=k===todayStr,wknd=[0,6].includes(d.getDay()); return `<div class="month-day ${tod?'today':''} ${other?'other-month':''} ${wknd?'weekend':''}" onclick="document.dispatchEvent(new CustomEvent('selectDay',{detail:'${k}'}))" style="cursor:pointer"><div class="month-day-num">${d.getDate()}</div>${evs.slice(0,2).map(ev=>evHtml({...ev,_date:k},true)).join('')}${evs.length>2?`<div class="cal-more">+${evs.length-2}</div>`:''}</div>` }).join('')}</div>`
 }
 
-// ── Jaar weergave ─────────────────────────────────────────────────────────────
 function buildYear(evMap) {
-  const y = new Date().getFullYear() + yearOff
-  const evDates = new Set(Object.keys(evMap).filter(k => evMap[k].length > 0))
-  const todayStr = localIso(new Date())
-
-  return `<div class="year-grid">
-    ${Array.from({length:12}, (_,mi) => {
-      const first = new Date(y,mi,1), last = new Date(y,mi+1,0).getDate()
-      const startWd = first.getDay() === 0 ? 6 : first.getDay()-1
-      const days = []
-      for (let i = startWd-1; i >= 0; i--) days.push(null)
-      for (let i = 1; i <= last; i++) {
-        const k = `${y}-${String(mi+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`
-        days.push({n:i, k, ev: evDates.has(k), today: k===todayStr})
-      }
-      while (days.length % 7 !== 0) days.push(null)
-      return `<div class="year-month">
-        <div class="year-month-name">${MONTHS_FULL[mi]}</div>
-        <div class="year-month-mini">
-          ${['M','D','W','D','V','Z','Z'].map(h=>`<div class="year-day-hdr">${h}</div>`).join('')}
-          ${days.map(d => d
-            ? `<div class="year-day ${d.ev?'has-event':''} ${d.today?'today':''}" onclick="document.dispatchEvent(new CustomEvent('selectDay',{detail:'${d.k}'}))" style="cursor:pointer">${d.n}</div>`
-            : `<div class="year-day"></div>`
-          ).join('')}
-        </div>
-      </div>`
-    }).join('')}
-  </div>`
+  const y=new Date().getFullYear()+yearOff,evDates=new Set(Object.keys(evMap).filter(k=>evMap[k].length>0)),todayStr=localIso(new Date())
+  return `<div class="year-grid">${Array.from({length:12},(_,mi)=>{ const first=new Date(y,mi,1),last=new Date(y,mi+1,0).getDate(),startWd=first.getDay()===0?6:first.getDay()-1,days=[]
+    for(let i=startWd-1;i>=0;i--) days.push(null)
+    for(let i=1;i<=last;i++){const k=`${y}-${String(mi+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;days.push({n:i,k,ev:evDates.has(k),today:k===todayStr})}
+    while(days.length%7!==0) days.push(null)
+    return `<div class="year-month"><div class="year-month-name">${MONTHS_FULL[mi]}</div><div class="year-month-mini">${['M','D','W','D','V','Z','Z'].map(h=>`<div class="year-day-hdr">${h}</div>`).join('')}${days.map(d=>d?`<div class="year-day ${d.ev?'has-event':''} ${d.today?'today':''}" onclick="document.dispatchEvent(new CustomEvent('selectDay',{detail:'${d.k}'}))" style="cursor:pointer">${d.n}</div>`:`<div class="year-day"></div>`).join('')}</div></div>`
+  }).join('')}</div>`
 }
 
-// ── Kalender header ───────────────────────────────────────────────────────────
 function calHeader(actCount) {
-  let label = '', showToday = false
-  const now = new Date()
-
-  if (calView === 'day') {
-    const d = getSelectedDay()
-    label = dayOff===0 ? `Vandaag — ${DAYS_FULL[d.getDay()]} ${d.getDate()} ${MONTHS_NL[d.getMonth()]}` : `${DAYS_FULL[d.getDay()]} ${d.getDate()} ${MONTHS_NL[d.getMonth()]} ${d.getFullYear()}`
-    showToday = dayOff !== 0
-  } else if (calView === 'week') {
-    const days = getWeekDays(weekOff)
-    label = weekOff===0 ? 'Deze week' : weekOff===1 ? 'Volgende week' : weekOff===-1 ? 'Vorige week' : `${days[0].getDate()} ${MONTHS_NL[days[0].getMonth()]} – ${days[6].getDate()} ${MONTHS_NL[days[6].getMonth()]}`
-    showToday = weekOff !== 0
-  } else if (calView === 'month') {
-    const d = new Date(now.getFullYear(), now.getMonth() + monthOff, 1)
-    label = MONTHS_FULL[d.getMonth()] + ' ' + d.getFullYear()
-    showToday = monthOff !== 0
-  } else {
-    label = String(now.getFullYear() + yearOff)
-    showToday = yearOff !== 0
-  }
-
-  return `
-    <div class="card-header" style="padding:13px 18px">
-      <div class="cal-nav">
-        <button class="cal-nav-btn" id="cal-prev">‹</button>
-        <span class="cal-label" style="text-transform:capitalize">${label}</span>
-        <button class="cal-nav-btn" id="cal-next">›</button>
-        ${showToday ? `<button class="cal-nav-btn cal-nav-today" id="cal-today">Vandaag</button>` : ''}
-      </div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <span class="text-muted" style="font-size:12px">${actCount} items</span>
-        <div class="cal-toggle">
-          <button class="cal-toggle-btn ${calView==='day'?'active':''}" data-v="day">Dag</button>
-          <button class="cal-toggle-btn ${calView==='week'?'active':''}" data-v="week">Week</button>
-          <button class="cal-toggle-btn ${calView==='month'?'active':''}" data-v="month">Maand</button>
-          <button class="cal-toggle-btn ${calView==='year'?'active':''}" data-v="year">Jaar</button>
-        </div>
-      </div>
-    </div>`
+  let label='',showToday=false
+  const now=new Date()
+  if(calView==='day'){const d=getSelectedDay();label=dayOff===0?`Vandaag — ${DAYS_FULL[d.getDay()]} ${d.getDate()} ${MONTHS_NL[d.getMonth()]}`:`${DAYS_FULL[d.getDay()]} ${d.getDate()} ${MONTHS_NL[d.getMonth()]} ${d.getFullYear()}`;showToday=dayOff!==0}
+  else if(calView==='week'){const days=getWeekDays(weekOff);label=weekOff===0?'Deze week':weekOff===1?'Volgende week':weekOff===-1?'Vorige week':`${days[0].getDate()} ${MONTHS_NL[days[0].getMonth()]} – ${days[6].getDate()} ${MONTHS_NL[days[6].getMonth()]}`;showToday=weekOff!==0}
+  else if(calView==='month'){const d=new Date(now.getFullYear(),now.getMonth()+monthOff,1);label=MONTHS_FULL[d.getMonth()]+' '+d.getFullYear();showToday=monthOff!==0}
+  else{label=String(now.getFullYear()+yearOff);showToday=yearOff!==0}
+  return `<div class="card-header" style="padding:13px 18px"><div class="cal-nav"><button class="cal-nav-btn" id="cal-prev">‹</button><span class="cal-label" style="text-transform:capitalize">${label}</span><button class="cal-nav-btn" id="cal-next">›</button>${showToday?`<button class="cal-nav-btn cal-nav-today" id="cal-today">Vandaag</button>`:''}</div><div style="display:flex;align-items:center;gap:10px"><span class="text-muted" style="font-size:12px">${actCount} items</span><div class="cal-toggle"><button class="cal-toggle-btn ${calView==='day'?'active':''}" data-v="day">Dag</button><button class="cal-toggle-btn ${calView==='week'?'active':''}" data-v="week">Week</button><button class="cal-toggle-btn ${calView==='month'?'active':''}" data-v="month">Maand</button><button class="cal-toggle-btn ${calView==='year'?'active':''}" data-v="year">Jaar</button></div></div></div>`
 }
 
-// ── Render ────────────────────────────────────────────────────────────────────
-function render(acts, calTasks, myTasks, openDeals, compCount) {
-  const evMap      = buildEvMap(acts, calTasks)
-  const totalItems = acts.length + calTasks.length
-  const overdue    = myTasks.filter(t => isOverdue(t.due_date)).length
-  const pipeVal    = openDeals.reduce((s,d) => s+(d.value||0), 0)
-  const fmt        = v => new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v)
-
-  let calBody = ''
-  if (calView === 'day')   calBody = buildDay(evMap)
-  else if (calView === 'week')  calBody = buildWeek(evMap)
-  else if (calView === 'month') calBody = buildMonth(evMap)
-  else calBody = buildYear(evMap)
+function render(acts,calTasks,myTasks,openDeals,compCount) {
+  const evMap=buildEvMap(acts,calTasks),totalItems=acts.length+calTasks.length
+  const overdue=myTasks.filter(t=>isOverdue(t.due_date)).length
+  const pipeVal=openDeals.reduce((s,d)=>s+(d.value||0),0)
+  const fmt=v=>new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v)
+  let calBody=''
+  if(calView==='day') calBody=buildDay(evMap)
+  else if(calView==='week') calBody=buildWeek(evMap)
+  else if(calView==='month') calBody=buildMonth(evMap)
+  else calBody=buildYear(evMap)
 
   document.getElementById('dash').innerHTML = `
     <div class="quick-actions">
@@ -340,39 +148,26 @@ function render(acts, calTasks, myTasks, openDeals, compCount) {
       <button class="quick-btn" id="btn-actie">
         <div class="quick-btn-icon"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
         <div class="quick-btn-label">Nieuwe actie</div>
-        <div class="quick-btn-sub">Bel \xb7 notitie \xb7 meeting</div>
+        <div class="quick-btn-sub">Bel · notitie · meeting</div>
       </button>
-      </div>
-
+    </div>
     <div class="card" style="margin-bottom:20px">
       ${calHeader(totalItems)}
       <div class="card-body" style="padding:${calView==='day'?'0':'14px'}">${calBody}</div>
     </div>
-
     <div class="stats-row">
       <div class="stat-card"><div class="stat-label">Bedrijven</div><div class="stat-value">${compCount}</div></div>
       <div class="stat-card"><div class="stat-label">Mijn deals</div><div class="stat-value">${openDeals.length}</div><div class="stat-sub">open</div></div>
       <div class="stat-card"><div class="stat-label">Mijn taken</div><div class="stat-value ${overdue?'text-danger':''}">${myTasks.length}</div><div class="stat-sub">${overdue?overdue+' verlopen':'open'}</div></div>
       <div class="stat-card"><div class="stat-label">Pipeline</div><div class="stat-value" style="font-size:${pipeVal>99999?'16px':'22px'}">${fmt(pipeVal)}</div></div>
     </div>
-
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
       <div class="card">
         <div class="card-header"><h3>Openstaande taken ${overdue?`<span class="text-danger" style="font-size:12px">(${overdue} verlopen)</span>`:''}</h3><a href="/pages/taken.html" class="btn btn-sm btn-secondary">Alle taken</a></div>
         <div class="card-body" style="padding-top:8px">
           ${myTasks.length ? myTasks.map(t => {
-            const ov = isOverdue(t.due_date)
-            return `<div class="task-item">
-              <div class="task-check" data-id="${t.id}"></div>
-              <div>
-                <div class="task-title">${esc(t.title)}</div>
-                <div class="task-due ${ov?'overdue':''}">
-                  ${t.companies?`<a href="/pages/klant.html?id=${t.companies.id}" style="color:var(--teal-m);font-weight:500">${esc(t.companies.name)}</a> · `:''}
-                  ${t.due_date?formatDateShort(t.due_date):'Geen deadline'}
-                  ${ov?' · <strong>Verlopen!</strong>':''}
-                </div>
-              </div>
-            </div>`
+            const ov=isOverdue(t.due_date)
+            return `<div class="task-item"><div class="task-check" data-id="${t.id}"></div><div><div class="task-title">${esc(t.title)}</div><div class="task-due ${ov?'overdue':''}">${t.companies?`<a href="/pages/klant.html?id=${t.companies.id}" style="color:var(--teal-m);font-weight:500">${esc(t.companies.name)}</a> · `:''}${t.due_date?formatDateShort(t.due_date):'Geen deadline'}${ov?' · <strong>Verlopen!</strong>':''}</div></div></div>`
           }).join('') : '<p class="text-muted" style="font-size:13px;padding:8px 0">Geen open taken 🎉</p>'}
         </div>
       </div>
@@ -387,7 +182,7 @@ function render(acts, calTasks, myTasks, openDeals, compCount) {
         <div class="card-body" style="padding-top:8px">
           <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:12px;line-height:1.5">Spreek een opdracht in. Bijv: <em>"notitie bij Acme over gesprek van vandaag"</em> of <em>"taak aanmaken om morgen eLecture te bellen"</em></p>
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-            <button id="nova-mic-btn" style="display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;flex-shrink:0">
+            <button id="nova-mic-btn" style="display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
               Spreek in
             </button>
@@ -399,155 +194,94 @@ function render(acts, calTasks, myTasks, openDeals, compCount) {
     </div>
   `
 
-  // Events
   document.getElementById('btn-klant')?.addEventListener('click', () => document.getElementById('klant-modal')?.classList.add('open'))
   document.getElementById('btn-actie')?.addEventListener('click', () => document.getElementById('actie-modal')?.classList.add('open'))
-
-  document.getElementById('cal-prev')?.addEventListener('click', () => {
-    if(calView==='day') dayOff--; else if(calView==='week') weekOff--; else if(calView==='month') monthOff--; else yearOff--
-    loadAll()
-  })
-  document.getElementById('cal-next')?.addEventListener('click', () => {
-    if(calView==='day') dayOff++; else if(calView==='week') weekOff++; else if(calView==='month') monthOff++; else yearOff++
-    loadAll()
-  })
-  document.getElementById('cal-today')?.addEventListener('click', () => {
-    dayOff=0; weekOff=0; monthOff=0; yearOff=0; loadAll()
-  })
-  document.querySelectorAll('.cal-toggle-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      calView = btn.dataset.v
-      dayOff=0; weekOff=0; monthOff=0; yearOff=0
-      loadAll()
-    })
-  })
-
+  document.getElementById('cal-prev')?.addEventListener('click', () => { if(calView==='day')dayOff--;else if(calView==='week')weekOff--;else if(calView==='month')monthOff--;else yearOff--;loadAll() })
+  document.getElementById('cal-next')?.addEventListener('click', () => { if(calView==='day')dayOff++;else if(calView==='week')weekOff++;else if(calView==='month')monthOff++;else yearOff++;loadAll() })
+  document.getElementById('cal-today')?.addEventListener('click', () => { dayOff=0;weekOff=0;monthOff=0;yearOff=0;loadAll() })
+  document.querySelectorAll('.cal-toggle-btn').forEach(btn => { btn.addEventListener('click', () => { calView=btn.dataset.v;dayOff=0;weekOff=0;monthOff=0;yearOff=0;loadAll() }) })
   document.querySelectorAll('.task-check').forEach(el => {
     el.addEventListener('click', async () => {
-      await supabase.from('tasks').update({status:'gedaan'}).eq('id', el.dataset.id)
+      await supabase.from('tasks').update({status:'gedaan'}).eq('id',el.dataset.id)
       el.classList.add('done')
-      el.innerHTML = '<svg width="10" height="10" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>'
+      el.innerHTML='<svg width="10" height="10" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>'
       el.closest('.task-item')?.querySelector('.task-title')?.classList.add('done')
     })
   })
-}
 
-// Dag selecteren vanuit week/maand/jaar
-document.addEventListener('selectDay', e => {
-  const dateStr = e.detail
-  const now = new Date()
-  const clicked = new Date(dateStr + 'T12:00:00')
-  dayOff = Math.round((clicked - new Date(localIso(now) + 'T12:00:00')) / 86400000)
-  calView = 'day'
-  loadAll()
-})
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-        if (!SR) { alert('Spraakherkenning niet beschikbaar in deze browser.'); return }
-        recognition = new SR()
-        recognition.lang = 'nl-NL'
-        recognition.onstart = () => {
-          micBtn.dataset.opname = '1'
-          micBtn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid #ef4444;background:#fee2e2;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer'
-          status.textContent = 'Luistert...'
-        }
-        recognition.onresult = async (ev) => {
-          const tekst = ev.results[0][0].transcript
-          status.textContent = '"' + tekst + '"'
-          micBtn.dataset.opname = ''
-          micBtn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:700;cursor:pointer'
-          resultaat.style.display = 'block'
-          resultaat.innerHTML = '<em>NOVA analyseert...</em>'
-          try {
-            const cd = await supabase.from('companies').select('id,name').order('name')
-            const cl = (cd.data||[]).map(c=>c.name+' (id:'+c.id+')').join(', ')
-            const r = await fetch('/.netlify/functions/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:800,messages:[{role:'user',content:'Je bent NOVA, een CRM assistent. Analyseer: "'+tekst+'"\n\nBedrijven: '+cl+'\n\nJSON response:\n- type: "notitie" of "taak"\n- company_id: uuid (of null)\n- company_naam: naam (of null)\n- inhoud: tekst (max 100 woorden)\n- due_date: YYYY-MM-DD (of null)\n- bevestiging: max 20 woorden\n\nAlleen JSON.'}]})})
-            const d = await r.json()
-            const a = JSON.parse(d.content?.[0]?.text?.replace(/\x60\x60\x60json|\x60\x60\x60/g,'').trim())
-            const mg = new Date(); mg.setDate(mg.getDate()+1)
-            resultaat.innerHTML = '<strong>NOVA:</strong> '+esc(a.bevestiging||'')+'<div style="display:flex;gap:8px;margin-top:8px"><button id="nv-ok" class="btn btn-primary btn-sm">\u2713 '+(a.type==='taak'?'Taak':'Notitie')+' aanmaken</button><button id="nv-no" class="btn btn-ghost btn-sm">Annuleren</button></div>'
-            document.getElementById('nv-ok').addEventListener('click',async()=>{
-              if(a.type==='taak') await supabase.from('tasks').insert({company_id:a.company_id||null,title:a.inhoud||tekst,due_date:a.due_date||mg.toISOString().split('T')[0],status:'open',assigned_to:uid})
-              else await supabase.from('activities').insert({company_id:a.company_id||null,type:'notitie',subject:(a.inhoud||tekst).slice(0,80),body:a.inhoud||tekst,occurred_at:new Date().toISOString(),logged_by:uid})
-              resultaat.style.display='none'; status.textContent='Druk op de knop en geef NOVA een opdracht...'; loadAll()
-            })
-            document.getElementById('nv-no').addEventListener('click',()=>{resultaat.style.display='none';status.textContent='Druk op de knop en geef NOVA een opdracht...'})
-          } catch(e){ resultaat.innerHTML='NOVA kon de opdracht niet verwerken. Probeer opnieuw.' }
-        }
-        recognition.onerror = () => {
-          micBtn.dataset.opname = ''
-          micBtn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:700;cursor:pointer'
-          status.textContent = 'Fout bij opname. Probeer opnieuw.'
-        }
-        recognition.start()
-      })
-    }
-
-    // NOVA via event delegation — werkt ook na re-render van innerHTML
-    document.addEventListener('click', async function(e) {
-      const btn = e.target.closest('#nova-mic-btn')
-      if (!btn) return
-      if (btn.dataset.opname === '1') return
-
+  // NOVA mic knop — koppel listener direct na render
+  const micBtn = document.getElementById('nova-mic-btn')
+  if (micBtn) {
+    micBtn.addEventListener('click', () => {
       const status = document.getElementById('nova-mic-status')
       const resultaat = document.getElementById('nova-resultaat')
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition
       if (!SR) { alert('Spraakherkenning niet beschikbaar in deze browser.'); return }
-
       const recognition = new SR()
       recognition.lang = 'nl-NL'
-
       recognition.onstart = () => {
-        btn.dataset.opname = '1'
-        btn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid #ef4444;background:#fee2e2;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;flex-shrink:0'
-        if (status) status.textContent = 'Luistert...'
+        micBtn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid #ef4444;background:#fee2e2;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0'
+        status.textContent = 'Luistert...'
       }
-
       recognition.onresult = async (ev) => {
         const tekst = ev.results[0][0].transcript
-        if (status) status.textContent = '"' + tekst + '"'
-        btn.dataset.opname = ''
-        btn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;flex-shrink:0'
-        if (resultaat) { resultaat.style.display = 'block'; resultaat.innerHTML = '<em>NOVA analyseert...</em>' }
+        status.textContent = '"' + tekst + '"'
+        micBtn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0'
+        resultaat.style.display = 'block'
+        resultaat.innerHTML = '<em>NOVA analyseert...</em>'
         try {
           const cd = await supabase.from('companies').select('id,name').order('name')
-          const cl = (cd.data||[]).map(c=>c.name+' (id:'+c.id+')').join(', ')
-          const r = await fetch('/.netlify/functions/transcribe',{
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({
-              model:'claude-haiku-4-5-20251001',
-              max_tokens:800,
-              messages:[{role:'user',content:'Je bent NOVA, een CRM assistent. Analyseer: "'+tekst+'"\n\nBedrijven: '+cl+'\n\nJSON response:\n- type: "notitie" of "taak"\n- company_id: uuid (of null)\n- company_naam: naam (of null)\n- inhoud: tekst (max 100 woorden)\n- due_date: YYYY-MM-DD (of null)\n- bevestiging: max 20 woorden\n\nAlleen JSON.'}]
+          const cl = (cd.data||[]).map(c => c.name + ' (id:' + c.id + ')').join(', ')
+          const r = await fetch('/.netlify/functions/transcribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'claude-haiku-4-5-20251001',
+              max_tokens: 800,
+              messages: [{ role: 'user', content: 'Je bent NOVA, een CRM assistent. Analyseer: "' + tekst + '"\n\nBedrijven: ' + cl + '\n\nGeef JSON met:\n- type: "notitie" of "taak"\n- company_id: uuid of null\n- inhoud: tekst max 100 woorden\n- due_date: YYYY-MM-DD of null\n- bevestiging: max 20 woorden\n\nAlleen JSON.' }]
             })
           })
           const d = await r.json()
-          const a = JSON.parse(d.content?.[0]?.text?.replace(/\x60\x60\x60json|\x60\x60\x60/g,'').trim())
-          const mg = new Date(); mg.setDate(mg.getDate()+1)
-          if (resultaat) resultaat.innerHTML = '<strong>NOVA:</strong> '+esc(a.bevestiging||'')+'<div style="display:flex;gap:8px;margin-top:8px"><button id="nv-ok" class="btn btn-primary btn-sm">\u2713 '+(a.type==='taak'?'Taak':'Notitie')+' aanmaken</button><button id="nv-no" class="btn btn-ghost btn-sm">Annuleren</button></div>'
-          document.getElementById('nv-ok')?.addEventListener('click', async () => {
-            if (a.type==='taak') await supabase.from('tasks').insert({company_id:a.company_id||null,title:a.inhoud||tekst,due_date:a.due_date||mg.toISOString().split('T')[0],status:'open',assigned_to:uid})
-            else await supabase.from('activities').insert({company_id:a.company_id||null,type:'notitie',subject:(a.inhoud||tekst).slice(0,80),body:a.inhoud||tekst,occurred_at:new Date().toISOString(),logged_by:uid})
-            if (resultaat) resultaat.style.display='none'
-            if (status) status.textContent='Druk op de knop en geef NOVA een opdracht...'
+          const txt = d.content?.[0]?.text || ''
+          const a = JSON.parse(txt.replace(/```json\n?|```\n?/g, '').trim())
+          const mg = new Date(); mg.setDate(mg.getDate() + 1)
+          resultaat.innerHTML = '<strong>NOVA:</strong> ' + esc(a.bevestiging || '') +
+            '<div style="display:flex;gap:8px;margin-top:8px">' +
+            '<button id="nv-ok" class="btn btn-primary btn-sm">✓ ' + (a.type === 'taak' ? 'Taak' : 'Notitie') + ' aanmaken</button>' +
+            '<button id="nv-no" class="btn btn-ghost btn-sm">Annuleren</button></div>'
+          document.getElementById('nv-ok').addEventListener('click', async () => {
+            if (a.type === 'taak') {
+              await supabase.from('tasks').insert({ company_id: a.company_id || null, title: a.inhoud || tekst, due_date: a.due_date || mg.toISOString().split('T')[0], status: 'open', assigned_to: uid })
+            } else {
+              await supabase.from('activities').insert({ company_id: a.company_id || null, type: 'notitie', subject: (a.inhoud || tekst).slice(0, 80), body: a.inhoud || tekst, occurred_at: new Date().toISOString(), logged_by: uid })
+            }
+            resultaat.style.display = 'none'
+            status.textContent = 'Druk op de knop en geef NOVA een opdracht...'
             loadAll()
           })
-          document.getElementById('nv-no')?.addEventListener('click', () => {
-            if (resultaat) resultaat.style.display='none'
-            if (status) status.textContent='Druk op de knop en geef NOVA een opdracht...'
+          document.getElementById('nv-no').addEventListener('click', () => {
+            resultaat.style.display = 'none'
+            status.textContent = 'Druk op de knop en geef NOVA een opdracht...'
           })
         } catch(e) {
-          if (resultaat) resultaat.innerHTML='NOVA kon de opdracht niet verwerken. Probeer opnieuw.'
+          resultaat.innerHTML = 'NOVA kon de opdracht niet verwerken. Probeer opnieuw.'
         }
       }
-
       recognition.onerror = () => {
-        btn.dataset.opname = ''
-        btn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;flex-shrink:0'
-        if (status) status.textContent = 'Fout bij opname. Probeer opnieuw.'
+        micBtn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0'
+        status.textContent = 'Fout bij opname. Probeer opnieuw.'
       }
-
       recognition.start()
     })
+  }
+}
+
+document.addEventListener('selectDay', e => {
+  const clicked = new Date(e.detail + 'T12:00:00')
+  dayOff = Math.round((clicked - new Date(localIso(new Date()) + 'T12:00:00')) / 86400000)
+  calView = 'day'
+  loadAll()
+})
 
 await loadAll()
 </script>
