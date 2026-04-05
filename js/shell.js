@@ -29,8 +29,8 @@ export async function initShell(activeNav) {
 
     if (!isAdmin) q = q.eq('assigned_to', session.user.id)
 
-    const { count } = await q
-    inboxCount = count || 0
+    const { count, error } = await q
+    if (!error) inboxCount = count || 0
   } catch (e) { /* geen badge als query faalt */ }
 
   const navItems = [
