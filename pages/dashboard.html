@@ -102,6 +102,7 @@ async function loadAll() {
     supabase.from('activities')
       .select('id,type,subject,body,occurred_at,companies(id,name)')
       .gte('occurred_at', start).lte('occurred_at', end)
+      .eq('logged_by', uid)
       .order('occurred_at'),
     supabase.from('tasks')
       .select('id,title,due_date,status,companies(id,name)')
