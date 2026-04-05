@@ -69,7 +69,6 @@ export async function initShell(activeNav) {
           <div class="nav-section">Menu</div>
           ${sidebarNav}
         </nav>
-        <div style="text-align:center;font-size:10px;color:var(--text-muted);opacity:.4;padding:4px 0">v1.53</div>
         <div class="sidebar-user">
           <div class="avatar">${esc(ini)}</div>
           <div class="sidebar-user-info">
