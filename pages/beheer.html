@@ -44,7 +44,7 @@ main.innerHTML = `
         <div class="card-body" id="tags-body"><div class="loading"><div class="spinner"></div></div></div>
       </div>
 
-      <div class="card">
+      <div class="card" id="users-card">
         <div class="card-header">
           <h3>Gebruikers</h3>
           <button class="btn btn-sm btn-primary" id="invite-btn">+ Uitnodigen</button>
@@ -287,7 +287,14 @@ document.getElementById('save-invite-btn').addEventListener('click',async()=>{
   loadUsers()
 })
 
-await Promise.all([loadTags(), loadUsers()])
+const isAdmin = ctx.profile?.role === 'admin'
+  if (!isAdmin) {
+    document.getElementById('users-card')?.style.setProperty('display','none')
+    document.getElementById('invite-btn')?.style.setProperty('display','none')
+    await loadTags()
+  } else {
+    await Promise.all([loadTags(), loadUsers()])
+  }
 
 // iCal URLs
 const { data: { session } } = await supabase.auth.getSession()
