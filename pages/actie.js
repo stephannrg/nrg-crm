@@ -74,13 +74,13 @@ export async function openNieuweActie(container) {
             <div class="field">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
                 <label style="margin-bottom:0">Notities</label>
-                <button type="button" id="dicteer-btn" title="Inspreken" style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .15s">
-                  <svg id="dicteer-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-                  <span id="dicteer-label">Inspreken</span>
+                <button type="button" id="dicteer-btn" title="Vraag NOVA" style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;border:1.5px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);cursor:pointer;transition:all .15s">
+                  <span style="width:16px;height:16px;background:var(--teal-m);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:9px;font-weight:800;flex-shrink:0">N</span><svg id="dicteer-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                  <span id="dicteer-label">Vraag NOVA</span>
                 </button>
               </div>
               <div id="dicteer-status" style="display:none;margin-bottom:8px;padding:10px 14px;border-radius:10px;font-size:13px;background:var(--green-l);color:#007a4d;border:1.5px solid #b3e6d0"></div>
-              <textarea id="actie-body" placeholder="Typ hier of gebruik de microfoon om in te spreken..."></textarea>
+              <textarea id="actie-body" placeholder="Typ hier of vraag NOVA om in te spreken..."></textarea>
             </div>
             <div class="field">
               <label>Datum & tijd</label>
