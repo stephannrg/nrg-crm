@@ -1,13 +1,11 @@
-// Geen npm dependencies - gebruikt fetch direct naar Supabase REST API
-
-const SUPABASE_URL  = 'https://lvpyecqapzqqakokiqgp.supabase.co'
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2cHllY3FhcHpxcWFrb2tpcWdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwMjcyMzUsImV4cCI6MjA5MDYwMzIzNX0.d0oz1eZ0In3nB8dOsyMXIz9FcFlNTrGjZBKOaFmDvFc'
+const SUPABASE_URL = 'https://lvpyecqapzqqakokiqgp.supabase.co'
 
 async function sbFetch(path) {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     headers: {
-      'apikey': SUPABASE_ANON,
-      'Authorization': `Bearer ${SUPABASE_ANON}`,
+      'apikey': key,
+      'Authorization': `Bearer ${key}`,
       'Accept': 'application/json'
     }
   })
@@ -37,12 +35,24 @@ const TYPE_LABELS = { bel: 'Belnotitie', mail: 'E-mail', meeting: 'Meeting', not
 
 exports.handler = async (event) => {
   const userId = event.queryStringParameters?.user || null
+  const team = event.queryStringParameters?.team === '1'
 
+  // Zonder user parameter en geen team flag — lege kalender
+  if (!userId && !team) {
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'text/calendar; charset=utf-8' },
+      body: 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//NRG CRM//NL\r\nEND:VCALENDAR'
+    }
+  }
+
+  // Activiteiten — gefilterd op gebruiker tenzij team feed
   let actFilter = 'order=occurred_at.desc&limit=500&select=id,type,subject,body,occurred_at,companies(name),profiles(full_name)'
-  if (userId) actFilter += `&logged_by=eq.${userId}`
+  if (userId && !team) actFilter += `&logged_by=eq.${userId}`
 
+  // Taken — gefilterd op gebruiker tenzij team feed
   let taskFilter = 'status=eq.open&due_date=not.is.null&order=due_date.asc&limit=200&select=id,title,due_date,companies(name),profiles!tasks_assigned_to_fkey(full_name)'
-  if (userId) taskFilter += `&assigned_to=eq.${userId}`
+  if (userId && !team) taskFilter += `&assigned_to=eq.${userId}`
 
   const [activities, tasks] = await Promise.all([
     sbFetch(`activities?${actFilter}`),
@@ -69,7 +79,6 @@ exports.handler = async (event) => {
       a.profiles?.full_name ? `Gelogd door: ${a.profiles.full_name}` : '',
       a.body || ''
     ].filter(Boolean).join('\\n'))
-
     lines.push('BEGIN:VEVENT')
     lines.push(foldLine(`UID:activity-${a.id}@nrgcrm`))
     lines.push(foldLine(`DTSTART:${start}`))
@@ -87,7 +96,6 @@ exports.handler = async (event) => {
       t.companies?.name ? `Bedrijf: ${t.companies.name}` : '',
       t.profiles?.full_name ? `Toegewezen aan: ${t.profiles.full_name}` : ''
     ].filter(Boolean).join('\\n'))
-
     lines.push('BEGIN:VEVENT')
     lines.push(foldLine(`UID:task-${t.id}@nrgcrm`))
     lines.push(foldLine(`DTSTART;VALUE=DATE:${t.due_date.replace(/-/g, '')}`))

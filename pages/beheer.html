@@ -34,7 +34,7 @@ const main = document.getElementById('main-content')
 main.innerHTML = `
   <div class="topbar"><h1>Beheer</h1></div>
   <div class="page-content">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div id="admin-section" style="display:none"><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
 
       <div class="card">
         <div class="card-header">
@@ -54,6 +54,7 @@ main.innerHTML = `
 
     </div>
   </div>
+</div>
 
   <!-- iCal koppeling -->
   <div class="card" style="margin-top:20px">
@@ -268,8 +269,9 @@ document.getElementById('save-invite-btn').addEventListener('click',async()=>{
 })
 
 if (isAdmin) {
-    document.getElementById('admin-section').style.display = 'block'
-    await Promise.all([loadTags(),loadUsers()])
+    const adminSection = document.getElementById('admin-section')
+    if (adminSection) adminSection.style.display = 'block'
+    await Promise.all([loadTags(), loadUsers()])
   }
 
 // iCal URLs
@@ -277,7 +279,7 @@ const { data: { session } } = await supabase.auth.getSession()
 const uid = session?.user?.id
 const base = location.origin + '/.netlify/functions/calendar'
 document.getElementById('my-ical-url').textContent = base + '?user=' + uid
-document.getElementById('team-ical-url').textContent = base
+document.getElementById('team-ical-url').textContent = base + '?team=1'
 
 function copyUrl(elId, btnId) {
   const url = document.getElementById(elId).textContent
