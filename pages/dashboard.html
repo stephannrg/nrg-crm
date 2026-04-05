@@ -442,6 +442,57 @@ document.addEventListener('selectDay', e => {
   loadAll()
 })
 
+    // NOVA dicteer
+    function initNovaDicteer() {
+      const micBtn = document.getElementById('nova-mic-btn')
+      const status = document.getElementById('nova-mic-status')
+      const resultaat = document.getElementById('nova-resultaat')
+      if (!micBtn) return
+      let recognition = null
+      micBtn.addEventListener('click', () => {
+        if (micBtn.dataset.opname === '1') { recognition?.stop(); return }
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+        if (!SR) { alert('Spraakherkenning niet beschikbaar in deze browser.'); return }
+        recognition = new SR()
+        recognition.lang = 'nl-NL'
+        recognition.onstart = () => {
+          micBtn.dataset.opname = '1'
+          micBtn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid #ef4444;background:#fee2e2;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer'
+          status.textContent = 'Luistert...'
+        }
+        recognition.onresult = async (ev) => {
+          const tekst = ev.results[0][0].transcript
+          status.textContent = '"' + tekst + '"'
+          micBtn.dataset.opname = ''
+          micBtn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:700;cursor:pointer'
+          resultaat.style.display = 'block'
+          resultaat.innerHTML = '<em>NOVA analyseert...</em>'
+          try {
+            const cd = await supabase.from('companies').select('id,name').order('name')
+            const cl = (cd.data||[]).map(c=>c.name+' (id:'+c.id+')').join(', ')
+            const r = await fetch('/.netlify/functions/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:800,messages:[{role:'user',content:'Je bent NOVA, een CRM assistent. Analyseer: "'+tekst+'"\n\nBedrijven: '+cl+'\n\nJSON response:\n- type: "notitie" of "taak"\n- company_id: uuid (of null)\n- company_naam: naam (of null)\n- inhoud: tekst (max 100 woorden)\n- due_date: YYYY-MM-DD (of null)\n- bevestiging: max 20 woorden\n\nAlleen JSON.'}]})})
+            const d = await r.json()
+            const a = JSON.parse(d.content?.[0]?.text?.replace(/```json|```/g,'').trim())
+            const mg = new Date(); mg.setDate(mg.getDate()+1)
+            resultaat.innerHTML = '<strong>NOVA:</strong> '+esc(a.bevestiging||'')+'<div style="display:flex;gap:8px;margin-top:8px"><button id="nv-ok" class="btn btn-primary btn-sm">\u2713 '+(a.type==='taak'?'Taak':'Notitie')+' aanmaken</button><button id="nv-no" class="btn btn-ghost btn-sm">Annuleren</button></div>'
+            document.getElementById('nv-ok').addEventListener('click',async()=>{
+              if(a.type==='taak') await supabase.from('tasks').insert({company_id:a.company_id||null,title:a.inhoud||tekst,due_date:a.due_date||mg.toISOString().split('T')[0],status:'open',assigned_to:uid})
+              else await supabase.from('activities').insert({company_id:a.company_id||null,type:'notitie',subject:(a.inhoud||tekst).slice(0,80),body:a.inhoud||tekst,occurred_at:new Date().toISOString(),logged_by:uid})
+              resultaat.style.display='none'; status.textContent='Druk op de knop en geef NOVA een opdracht...'; loadAll()
+            })
+            document.getElementById('nv-no').addEventListener('click',()=>{resultaat.style.display='none';status.textContent='Druk op de knop en geef NOVA een opdracht...'})
+          } catch(e){ resultaat.innerHTML='NOVA kon de opdracht niet verwerken. Probeer opnieuw.' }
+        }
+        recognition.onerror = () => {
+          micBtn.dataset.opname = ''
+          micBtn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:2px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:700;cursor:pointer'
+          status.textContent = 'Fout bij opname. Probeer opnieuw.'
+        }
+        recognition.start()
+      })
+    }
+
+  initNovaDicteer()
 await loadAll()
 </script>
 </body>
