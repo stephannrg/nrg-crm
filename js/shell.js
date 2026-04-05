@@ -19,19 +19,7 @@ export async function initShell(activeNav) {
   const ini = initials(name)
   const isAdmin = profile?.role === 'admin'
 
-  // Tel ongelezen inbox mails voor badge
-  let inboxCount = 0
-  try {
-    let q = supabase
-      .from('email_inbox')
-      .select('id', { count: 'exact', head: true })
-      .eq('verwerkt', false)
-
-    if (!isAdmin) q = q.eq('assigned_to', session.user.id)
-
-    const { count, error } = await q
-    if (!error) inboxCount = count || 0
-  } catch (e) { /* geen badge als query faalt */ }
+  const inboxCount = 0
 
   const navItems = [
     { key: 'dashboard', label: 'Dashboard', href: '/pages/dashboard.html' },
