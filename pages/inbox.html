@@ -300,7 +300,7 @@ Geef ALLEEN een JSON object terug.`
           company_id: btn.dataset.matchType === 'bedrijf' ? btn.dataset.matchId : null,
           type: 'mail', subject: email.subject || '(geen onderwerp)',
           body: bodyParts.join('\n\n'),
-          occurred_at: email.received_at || new Date().toISOString(), logged_by: uid
+          occurred_at: email.received_at ? new Date(email.received_at).toISOString() : new Date().toISOString(), logged_by: uid
         })
         if (!error) { await supabase.from('email_inbox').delete().eq('id', id); await load() }
         else { btn.disabled = false; btn.textContent = '✓ Koppelen'; alert('Fout: '+error.message) }
@@ -323,7 +323,7 @@ Geef ALLEEN een JSON object terug.`
           company_id: companyId, type: 'mail',
           subject: email.subject || '(geen onderwerp)',
           body: bodyParts2.join('\n\n'),
-          occurred_at: email.received_at || new Date().toISOString(), logged_by: uid
+          occurred_at: email.received_at ? new Date(email.received_at).toISOString() : new Date().toISOString(), logged_by: uid
         })
         if (!error) { await supabase.from('email_inbox').delete().eq('id', id); await load() }
         else { btn.disabled = false; btn.textContent = '+ Notitie toevoegen'; alert('Fout: '+error.message) }
@@ -391,11 +391,11 @@ Geef ALLEEN een JSON object terug.`
                   type: 'notitie',
                   subject: (snapAnalyse.inhoud || snapEmail.subject || '(geen onderwerp)').slice(0,80),
                   body: bodyDelen.join('\n\n') || snapAnalyse.inhoud || '',
-                  occurred_at: snapEmail.received_at || new Date().toISOString(),
+                  occurred_at: snapEmail.received_at ? new Date(snapEmail.received_at).toISOString() : new Date().toISOString(),
                   logged_by: uid
                 })
-                if (!error) { await supabase.from('email_inbox').delete().eq('id', id); await load() }
-                else alert('Fout bij opslaan notitie: ' + error.message)
+                if (error) { alert('Fout bij opslaan notitie: ' + JSON.stringify(error)); return }
+                await supabase.from('email_inbox').delete().eq('id', id); await load()
               })
             } else if (analyse.type === 'taak') {
               analyseActiesEl.innerHTML = `
@@ -460,7 +460,7 @@ Geef ALLEEN een JSON object terug.`
           company_id: nieuwBedrijf.id, type: 'notitie',
           subject: email.subject || '(geen onderwerp)',
           body: bodyDelen.join('\n\n'),
-          occurred_at: email.received_at, logged_by: uid
+          occurred_at: email.received_at ? new Date(email.received_at).toISOString() : new Date().toISOString(), logged_by: uid
         })
         if (notitieError) { alert('Bedrijf aangemaakt maar notitie mislukt: ' + notitieError.message); }
 
