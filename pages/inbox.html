@@ -274,6 +274,14 @@ Geef ALLEEN een JSON object terug.`
         </div>`
     }).join('')
 
+    // Zet selects op match_id na render
+    emails.forEach(e => {
+      if (e.match_id && e.match_type === 'bedrijf') {
+        const sel = body.querySelector('[data-select-notitie="' + e.id + '"]')
+        if (sel) sel.value = e.match_id
+      }
+    })
+
     // Tab wisselen
     body.querySelectorAll('.actie-tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -311,7 +319,10 @@ Geef ALLEEN een JSON object terug.`
     body.querySelectorAll('[data-action="notitie"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id, email = emails.find(e => e.id === id)
-        const companyId = body.querySelector(`[data-select-notitie="${id}"]`)?.value || email.match_id || null
+        const selectEl = body.querySelector('[data-select-notitie="' + id + '"]')
+        const selectVal = selectEl?.value?.trim()
+        // Fallback: als select leeg is maar email heeft match_id, gebruik die
+        const companyId = (selectVal && selectVal !== '') ? selectVal : (email.match_id && email.match_type === 'bedrijf' ? email.match_id : null)
         if (!companyId) { alert('Kies eerst een bedrijf.'); return }
         btn.disabled = true; btn.textContent = 'Bezig...'
         const bodyParts2 = []
