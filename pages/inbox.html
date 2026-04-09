@@ -213,12 +213,17 @@ Geef ALLEEN een JSON object terug.`
               </div>
 
               <div class="actie-panel active" id="panel-notitie-${e.id}">
-                <div class="notitie-row">
-                  <select data-select-notitie="${e.id}">
-                    <option value="">— Kies bedrijf —</option>
-                    ${selectedOption}${companyOptions}
-                  </select>
-                  <button class="btn btn-secondary btn-sm" data-action="notitie" data-id="${e.id}">+ Notitie toevoegen</button>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div>
+                    <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:5px">Koppel aan bestaand bedrijf:</div>
+                    <div style="display:flex;gap:8px;align-items:center">
+                      <select id="select-notitie-${e.id}" style="flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:white">
+                        <option value="">— Kies bedrijf —</option>
+                        ${selectedOption}${companyOptions}
+                      </select>
+                      <button class="btn btn-primary btn-sm" data-action="notitie" data-id="${e.id}" style="white-space:nowrap">+ Notitie toevoegen</button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -277,7 +282,7 @@ Geef ALLEEN een JSON object terug.`
     // Zet selects op match_id na render
     emails.forEach(e => {
       if (e.match_id && e.match_type === 'bedrijf') {
-        const sel = body.querySelector('[data-select-notitie="' + e.id + '"]')
+        const sel = document.getElementById('select-notitie-' + e.id)
         if (sel) sel.value = e.match_id
       }
     })
@@ -316,29 +321,47 @@ Geef ALLEEN een JSON object terug.`
     })
 
     // Notitie
-    body.querySelectorAll('[data-action="notitie"]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = btn.dataset.id, email = emails.find(e => e.id === id)
-        const selectEl = body.querySelector('[data-select-notitie="' + id + '"]')
-        const selectVal = selectEl?.value?.trim()
-        // Fallback: als select leeg is maar email heeft match_id, gebruik die
-        const companyId = (selectVal && selectVal !== '') ? selectVal : (email.match_id && email.match_type === 'bedrijf' ? email.match_id : null)
-        if (!companyId) { alert('Kies eerst een bedrijf.'); return }
-        btn.disabled = true; btn.textContent = 'Bezig...'
-        const bodyParts2 = []
-        if (email.samenvatting) bodyParts2.push(email.samenvatting)
-        if (email.suggestie_toelichting) bodyParts2.push('NOVA: ' + email.suggestie_toelichting)
-        if (email.bijlagen_samenvatting) bodyParts2.push('Bijlagen: ' + email.bijlagen_samenvatting)
-        if (!bodyParts2.length && email.raw_email) bodyParts2.push(email.raw_email.slice(0, 500))
-        const { data: actData, error } = await supabase.from('activities').insert({
-          company_id: companyId, type: 'mail',
-          subject: email.subject || '(geen onderwerp)',
-          body: bodyParts2.join('\n\n'),
-          occurred_at: email.received_at ? new Date(email.received_at).toISOString() : new Date().toISOString(), logged_by: uid
-        }).select()
-        if (error) { btn.disabled=false; btn.textContent='+ Notitie toevoegen'; alert('Fout: '+error.message); return }
-        if (!actData || actData.length === 0) { alert('Notitie niet opgeslagen — controleer RLS policy op activities tabel'); btn.disabled=false; btn.textContent='+ Notitie toevoegen'; return }
-        await supabase.from('email_inbox').delete().eq('id', id); await load()
+    body.querySelectorAll('[data-action="notitie"]').forEach(function(btn) {
+      btn.addEventListener('click', async function() {
+        const id = btn.dataset.id
+        const emailItem = emails.find(function(e) { return e.id === id })
+        if (!emailItem) { alert('Mail niet gevonden'); return }
+
+        const sel = document.getElementById('select-notitie-' + id)
+        const companyId = sel ? sel.value : ''
+
+        if (!companyId || companyId.trim() === '') {
+          alert('Kies eerst een bedrijf uit de lijst.')
+          return
+        }
+
+        btn.disabled = true
+        btn.textContent = 'Bezig...'
+
+        const bodyParts = []
+        if (emailItem.samenvatting) bodyParts.push(emailItem.samenvatting)
+        if (emailItem.suggestie_toelichting) bodyParts.push('NOVA: ' + emailItem.suggestie_toelichting)
+        if (emailItem.bijlagen_samenvatting) bodyParts.push('Bijlagen: ' + emailItem.bijlagen_samenvatting)
+        if (!bodyParts.length && emailItem.raw_email) bodyParts.push(emailItem.raw_email.slice(0, 500))
+
+        const { error } = await supabase.from('activities').insert({
+          company_id: companyId,
+          type: 'mail',
+          subject: emailItem.subject || '(geen onderwerp)',
+          body: bodyParts.join('\n\n'),
+          occurred_at: new Date().toISOString(),
+          logged_by: uid
+        })
+
+        if (error) {
+          btn.disabled = false
+          btn.textContent = '+ Notitie toevoegen'
+          alert('Fout: ' + error.message)
+          return
+        }
+
+        await supabase.from('email_inbox').delete().eq('id', id)
+        await load()
       })
     })
 
