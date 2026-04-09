@@ -452,7 +452,6 @@ function render() {
             </div>
           </div>
           <div class="card-body" style="${timeline.length ? 'padding-top:16px' : ''}" id="timeline-body">
-            ${renderTimeline(timeline, 0)}
           </div>
         </div>
 
@@ -629,6 +628,21 @@ function render() {
       </div>
     </div>
   `
+
+  // Render tijdlijn na innerHTML
+  const tlBody = document.getElementById('timeline-body')
+  if (tlBody) tlBody.innerHTML = renderTimeline(timeline, 0)
+
+  // Laad meer knop
+  document.getElementById('timeline-body')?.addEventListener('click', function(e) {
+    const laad = e.target.closest('#tl-laad-meer')
+    if (!laad) return
+    const offset = parseInt(laad.dataset.offset)
+    const extra = document.createElement('div')
+    extra.innerHTML = renderTimeline(timeline, offset)
+    laad.closest('div').replaceWith(extra.firstChild)
+    document.getElementById('timeline-body').appendChild(extra.lastChild || extra)
+  })
 
   bindEvents()
 }
