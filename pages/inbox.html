@@ -329,9 +329,10 @@ Geef ALLEEN een JSON object terug.`
 
         const sel = document.getElementById('select-notitie-' + id)
         const companyId = sel ? sel.value : ''
+        console.log('DEBUG notitie - id:', id, 'sel:', sel, 'companyId:', companyId, 'sel.options[sel.selectedIndex]:', sel ? sel.options[sel.selectedIndex]?.text : 'geen sel')
 
         if (!companyId || companyId.trim() === '') {
-          alert('Kies eerst een bedrijf uit de lijst.')
+          alert('Kies eerst een bedrijf uit de lijst. Select waarde: "' + companyId + '"')
           return
         }
 
