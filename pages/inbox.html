@@ -378,36 +378,41 @@ Geef ALLEEN een JSON object terug.`
                 <button class="btn btn-primary btn-sm" id="nova-bevestig-${id}">✓ Notitie aanmaken</button>
                 <button class="btn btn-ghost btn-sm" id="nova-annuleer-${id}">Annuleren</button>`
 
-              const snapEmail = Object.assign({}, email)
+              const snapEmailId = id
+              const snapEmailData = Object.assign({}, email)
               const snapAnalyse = Object.assign({}, analyse)
               document.getElementById(`nova-bevestig-${id}`).addEventListener('click', async () => {
-                // Bepaal company_id: NOVA suggestie > email match > null
+                // Bepaal company_id via meerdere fallbacks
                 let compId = null
-                if (snapAnalyse.company_id && snapAnalyse.company_id.length === 36) compId = snapAnalyse.company_id
-                else if (snapEmail.match_id && snapEmail.match_type === 'bedrijf') compId = snapEmail.match_id
+                // 1. Email match_id (meest betrouwbaar — al gematcht door NOVA bij inlezen)
+                if (snapEmailData.match_id && snapEmailData.match_type === 'bedrijf') {
+                  compId = snapEmailData.match_id
+                }
+                // 2. NOVA analyse company_id (UUID check)
+                else if (snapAnalyse.company_id && String(snapAnalyse.company_id).length === 36) {
+                  compId = snapAnalyse.company_id
+                }
+                // 3. Zoek op naam in companies array
+                else if (snapAnalyse.company_naam) {
+                  const gevonden = companies.find(c => c.name.toLowerCase() === snapAnalyse.company_naam.toLowerCase())
+                  if (gevonden) compId = gevonden.id
+                }
 
-                // Bouw body op
                 const bodyDelen = []
                 if (snapAnalyse.inhoud) bodyDelen.push(snapAnalyse.inhoud)
-                if (snapEmail.samenvatting && snapEmail.samenvatting !== snapAnalyse.inhoud) bodyDelen.push('\n---\nMailsamenvatting: ' + snapEmail.samenvatting)
-                if (snapEmail.suggestie_toelichting) bodyDelen.push('NOVA: ' + snapEmail.suggestie_toelichting)
+                if (snapEmailData.samenvatting && snapEmailData.samenvatting !== snapAnalyse.inhoud) bodyDelen.push('---\nMailsamenvatting: ' + snapEmailData.samenvatting)
+                if (snapEmailData.suggestie_toelichting) bodyDelen.push('NOVA: ' + snapEmailData.suggestie_toelichting)
 
-                const payload = {
+                const { error } = await supabase.from('activities').insert({
                   company_id: compId,
                   type: 'notitie',
-                  subject: (snapAnalyse.inhoud || snapEmail.subject || '(geen onderwerp)').slice(0,80),
-                  body: bodyDelen.join('\n') || snapAnalyse.inhoud || snapEmail.samenvatting || '',
+                  subject: (snapAnalyse.inhoud || snapEmailData.subject || '(geen onderwerp)').slice(0,80),
+                  body: bodyDelen.join('\n') || snapEmailData.samenvatting || '',
                   occurred_at: new Date().toISOString(),
                   logged_by: uid
-                }
-
-                const { data: inserted, error } = await supabase.from('activities').insert(payload).select()
-                if (error) {
-                  alert('Fout: ' + (error.message || JSON.stringify(error)))
-                  return
-                }
-                await supabase.from('email_inbox').update({verwerkt: true}).eq('id', id)
-                await supabase.from('email_inbox').delete().eq('id', id)
+                })
+                if (error) { alert('Fout: ' + error.message); return }
+                await supabase.from('email_inbox').delete().eq('id', snapEmailId)
                 await load()
               })
             } else if (analyse.type === 'taak') {
