@@ -174,7 +174,14 @@ async function load() {
 
 
 
-  function buildTimelineHtml(items) {
+
+  data = { company, ctags: ctags||[], contacts: contacts||[], deals: deals||[], activities: activities||[], tasks: tasks||[], attachments: attachments||[], notes: notes||[], allTags: allTags||[], allUsers: allUsers||[] }
+  document.getElementById('page-title').textContent = company.name
+  render()
+}
+
+function render() {
+function buildTimelineHtml(items) {
     if (!items.length) return '<p class="text-muted" style="font-size:13px">Nog geen activiteiten of taken.</p>'
     const PAGE = 10, MAX_BODY = 200
     const page = items.slice(0, PAGE)
@@ -223,12 +230,6 @@ async function load() {
     return out
   }
 
-  data = { company, ctags: ctags||[], contacts: contacts||[], deals: deals||[], activities: activities||[], tasks: tasks||[], attachments: attachments||[], notes: notes||[], allTags: allTags||[], allUsers: allUsers||[] }
-  document.getElementById('page-title').textContent = company.name
-  render()
-}
-
-function render() {
   const { company, ctags, contacts, deals, activities, tasks, attachments, notes } = data
   const tags = ctags.map(ct => `<span class="tag tag-${ct.tags?.type}">${esc(ct.tags?.name)}</span>`).join(' ')
 
