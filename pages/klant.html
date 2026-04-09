@@ -173,48 +173,52 @@ async function load() {
   ])
 
 
-  const TIMELINE_PAGE = 10
-  const BODY_MAX = 200
 
-  function renderTimelineItem(item) {
-    if (item._kind === 'activity') {
-      const body = item.body || ''
-      const kort = body.length > BODY_MAX
-      const bodyTekst = kort ? body.slice(0, BODY_MAX) + '...' : body
-      const bodyHtml = body ? '<div class="tl-body text-muted">' + esc(bodyTekst) + (kort ? ' <a href="#" class="tl-meer-link" data-id="' + item.id + '">[Lees meer]</a>' : '') + '</div>' : ''
-      return '<div class="timeline-item">' +
-        '<div class="timeline-dot td-' + item.type + '">' + activityIcon(item.type) + '</div>' +
-        '<div class="tl-card">' +
-          '<div class="tl-head">' +
-            '<span class="tl-title">' + esc(item.subject || activityLabel(item.type)) + '</span>' +
-            '<span class="tl-meta">' + activityLabel(item.type) + ' · ' + formatDate(item.occurred_at) + '</span>' +
-          '</div>' +
-          bodyHtml +
-        '</div></div>'
-    } else {
-      const over = isOverdue(item.due_date) && item.status === 'open'
-      return '<div class="timeline-item">' +
-        '<div class="timeline-dot td-task" style="cursor:' + (item.status === 'open' ? 'pointer' : 'default') + '" data-task-id="' + item.id + '" onclick="document.dispatchEvent(new CustomEvent(\'completeTask\',{detail:\'\' + item.id + \'\'}))">' +
-          (item.status === 'gedaan' ? '✓' : '☑') +
-        '</div>' +
-        '<div class="tl-card">' +
-          '<div class="tl-head">' +
-            '<span class="tl-title' + (item.status === 'gedaan' ? ' text-muted' : '') + '" style="' + (item.status === 'gedaan' ? 'text-decoration:line-through' : '') + '">' + esc(item.title) + '</span>' +
-            '<span class="tl-meta' + (over ? ' text-danger' : '') + '">' + (item.status === 'gedaan' ? '✓ Gedaan' : over ? '⚠ Verlopen' : formatDate(item.due_date)) + '</span>' +
-          '</div>' +
-        '</div></div>'
-    }
-  }
-
-  function renderTimeline(items, offset) {
+  function buildTimelineHtml(items) {
     if (!items.length) return '<p class="text-muted" style="font-size:13px">Nog geen activiteiten of taken.</p>'
-    const page = items.slice(offset, offset + TIMELINE_PAGE)
-    const rest = items.length - offset - page.length
-    let out = '<div class="timeline">' + page.map(renderTimelineItem).join('') + '</div>'
+    const PAGE = 10, MAX_BODY = 200
+    const page = items.slice(0, PAGE)
+    const rest = items.length - PAGE
+
+    function itemHtml(item) {
+      if (item._kind === 'activity') {
+        const body = item.body || ''
+        const kort = body.length > MAX_BODY
+        const bodyHtml = body
+          ? '<div class="tl-body text-muted" style="margin-top:5px;line-height:1.5">' +
+            '<span class="tl-body-tekst">' + esc(kort ? body.slice(0, MAX_BODY) + '…' : body) + '</span>' +
+            (kort ? ' <button class="btn-link tl-toggle" style="font-size:12px">Lees meer</button><span class="tl-body-full" style="display:none">' + esc(body) + '</span>' : '') +
+            '</div>'
+          : ''
+        return '<div class="timeline-item">' +
+          '<div class="timeline-dot td-' + item.type + '">' + activityIcon(item.type) + '</div>' +
+          '<div class="tl-card">' +
+            '<div class="tl-head">' +
+              '<span class="tl-title">' + esc(item.subject || activityLabel(item.type)) + '</span>' +
+              '<span class="tl-meta">' + activityLabel(item.type) + ' · ' + formatDate(item.occurred_at) + '</span>' +
+            '</div>' + bodyHtml +
+          '</div></div>'
+      } else {
+        const over = isOverdue(item.due_date) && item.status === 'open'
+        return '<div class="timeline-item">' +
+          '<div class="timeline-dot td-task" style="cursor:' + (item.status === 'open' ? 'pointer' : 'default') + '" ' +
+            'onclick="document.dispatchEvent(new CustomEvent(&quot;completeTask&quot;,{detail:&quot;' + item.id + '&quot;}))">' +
+            (item.status === 'gedaan' ? '✓' : '☑') +
+          '</div>' +
+          '<div class="tl-card">' +
+            '<div class="tl-head">' +
+              '<span class="tl-title' + (item.status === 'gedaan' ? ' text-muted' : '') + '" style="' + (item.status === 'gedaan' ? 'text-decoration:line-through' : '') + '">' + esc(item.title) + '</span>' +
+              '<span class="tl-meta' + (over ? ' text-danger' : '') + '">' + (item.status === 'gedaan' ? '✓ Gedaan' : over ? '⚠ Verlopen' : formatDate(item.due_date)) + '</span>' +
+            '</div>' +
+          '</div></div>'
+      }
+    }
+
+    let out = '<div class="timeline">' + page.map(itemHtml).join('') + '</div>'
     if (rest > 0) {
       out += '<div style="text-align:center;padding:14px 0">' +
-        '<button class="btn btn-secondary btn-sm" id="tl-laad-meer" data-offset="' + (offset + TIMELINE_PAGE) + '">' +
-        'Laad meer (' + rest + ' resterend)</button></div>'
+        '<button class="btn btn-secondary btn-sm tl-laad-meer" data-offset="' + PAGE + '">Laad meer (' + rest + ' resterend)</button>' +
+      '</div>'
     }
     return out
   }
@@ -452,6 +456,7 @@ function render() {
             </div>
           </div>
           <div class="card-body" style="${timeline.length ? 'padding-top:16px' : ''}" id="timeline-body">
+            ${buildTimelineHtml(timeline)}
           </div>
         </div>
 
@@ -628,21 +633,6 @@ function render() {
       </div>
     </div>
   `
-
-  // Render tijdlijn na innerHTML
-  const tlBody = document.getElementById('timeline-body')
-  if (tlBody) tlBody.innerHTML = renderTimeline(timeline, 0)
-
-  // Laad meer knop
-  document.getElementById('timeline-body')?.addEventListener('click', function(e) {
-    const laad = e.target.closest('#tl-laad-meer')
-    if (!laad) return
-    const offset = parseInt(laad.dataset.offset)
-    const extra = document.createElement('div')
-    extra.innerHTML = renderTimeline(timeline, offset)
-    laad.closest('div').replaceWith(extra.firstChild)
-    document.getElementById('timeline-body').appendChild(extra.lastChild || extra)
-  })
 
   bindEvents()
 }
@@ -931,6 +921,47 @@ function bindEvents() {
         const tl = e.target.closest('.tl-body')
         if (tl) tl.innerHTML = esc(item.body)
       }
+    }
+  })
+
+  // Tijdlijn inklap en laad meer
+  document.addEventListener('click', function(e) {
+    const toggle = e.target.closest('.tl-toggle')
+    if (toggle) {
+      const card = toggle.closest('.tl-body')
+      const tekst = card.querySelector('.tl-body-tekst')
+      const vol = card.querySelector('.tl-body-full')
+      const uitgeklapt = toggle.dataset.open === '1'
+      if (uitgeklapt) {
+        tekst.textContent = vol.textContent.slice(0, 200) + '…'
+        toggle.textContent = 'Lees meer'
+        toggle.dataset.open = ''
+      } else {
+        tekst.textContent = vol.textContent
+        toggle.textContent = 'Lees minder'
+        toggle.dataset.open = '1'
+      }
+      return
+    }
+    const laad = e.target.closest('.tl-laad-meer')
+    if (laad) {
+      const { timeline } = data
+      const offset = parseInt(laad.dataset.offset)
+      const PAGE = 10, MAX_BODY = 200
+      const page = timeline.slice(offset, offset + PAGE)
+      const rest = timeline.length - offset - page.length
+      const wrapper = document.createElement('div')
+      const tlDiv = document.querySelector('#timeline-body .timeline')
+      page.forEach(function(item) {
+        const tmp = document.createElement('div')
+        tmp.innerHTML = buildTimelineHtml([item])
+        const inner = tmp.querySelector('.timeline-item')
+        if (inner) tlDiv.appendChild(inner)
+      })
+      const btn = rest > 0
+        ? '<div style="text-align:center;padding:14px 0"><button class="btn btn-secondary btn-sm tl-laad-meer" data-offset="' + (offset + PAGE) + '">Laad meer (' + rest + ' resterend)</button></div>'
+        : ''
+      laad.closest('div').outerHTML = btn
     }
   })
 
