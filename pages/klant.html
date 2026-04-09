@@ -912,7 +912,7 @@ function bindEvents() {
     if (e.target.id === 'tl-laad-meer') {
       const offset = parseInt(e.target.dataset.offset)
       const body = document.getElementById('timeline-body')
-      if (body) body.innerHTML = renderTimeline(timeline, offset)
+      if (body) { const extra = document.createElement("div"); extra.innerHTML = buildTimelineHtml(timeline.slice(0, offset + 10)); body.innerHTML = extra.innerHTML }
     }
     if (e.target.classList.contains('tl-meer-link')) {
       e.preventDefault()
@@ -933,14 +933,16 @@ function bindEvents() {
       const tekst = card.querySelector('.tl-body-tekst')
       const vol = card.querySelector('.tl-body-full')
       const uitgeklapt = toggle.dataset.open === '1'
+      const volText = vol ? (vol.textContent || vol.innerText || '') : ''
       if (uitgeklapt) {
-        tekst.textContent = vol.textContent.slice(0, 200) + '…'
+        tekst.textContent = volText.slice(0, 200) + '…'
         toggle.textContent = 'Lees meer'
         toggle.dataset.open = ''
       } else {
-        tekst.textContent = vol.textContent
+        tekst.textContent = volText
         toggle.textContent = 'Lees minder'
         toggle.dataset.open = '1'
+        vol.style.display = 'none'
       }
       return
     }
