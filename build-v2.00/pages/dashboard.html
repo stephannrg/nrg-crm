@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Dashboard — NRG CRM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css"/>
+  <script src="../js/config.js"></script>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#00af70">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NRG CRM">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+  <link rel="shortcut icon" href="/img/favicon.ico">
+</head>
+<body>
+<script type="module">
+import { initShell } from '../js/shell.js'
+import { supabase } from '../js/supabase.js'
+import { esc, formatDateShort, stageLabel, activityLabel, isOverdue } from '../js/utils.js'
+import { openNieuweActie } from './actie.js'
+
+const ctx = await initShell('dashboard')
+if (!ctx) throw new Error()
+const { session, profile } = ctx
+const uid = session.user.id
+const naam = profile?.full_name?.split(' ')[0] || ''
+const main = document.getElementById('main-content')
+main.innerHTML = `
+  <div class="topbar"><h1>Hi${naam ? ', ' + esc(naam) : ''} 👋</h1></div>
+  <div class="page" id="dash"><div class="loading"><div class="spinner"></div> Laden...</div></div>
+`
+await openNieuweActie(main)
+
+let calView = 'day'
+let dayOff = 0, weekOff = 0, monthOff = 0, yearOff = 0
+const DAYS_NL    = ['Ma','Di','Wo','Do','Vr','Za','Zo']
+const DAYS_FULL  = ['Zondag','Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag']
+const MONTHS_NL  = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec']
+const MONTHS_FULL= ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december']
+
+function localIso(d) {
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')
+}
+function getSelectedDay() { const d=new Date(); d.setDate(d.getDate()+dayOff); return d }
+function getWeekDays(off) {
+  const now=new Date(), wd=now.getDay()===0?6:now.getDay()-1, mon=new Date(now)
+  mon.setDate(now.getDate()-wd+off*7); mon.setHours(0,0,0,0)
+  return Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d })
+}
+function isToday(d) { return localIso(d)===localIso(new Date()) }
+function getRange() {
+  const now=new Date()
+  if (calView==='day') { const s=localIso(getSelectedDay()); return {start:s+'T00:00:00',end:s+'T23:59:59',startDate:s,endDate:s} }
+  if (calView==='week') { const days=getWeekDays(weekOff),s=localIso(days[0]),e=localIso(days[6]); return {start:s+'T00:00:00',end:e+'T23:59:59',startDate:s,endDate:e} }
+  if (calView==='month') { const d=new Date(now.getFullYear(),now.getMonth()+monthOff,1),e=new Date(d.getFullYear(),d.getMonth()+1,0); return {start:localIso(d)+'T00:00:00',end:localIso(e)+'T23:59:59',startDate:localIso(d),endDate:localIso(e)} }
+  const y=now.getFullYear()+yearOff; return {start:y+'-01-01T00:00:00',end:y+'-12-31T23:59:59',startDate:y+'-01-01',endDate:y+'-12-31'}
+}
+
+async function loadAll() {
+  const {start,end,startDate,endDate}=getRange()
+  const w7=localIso(new Date(Date.now()+7*86400000))
+  const [{data:acts},{data:calTasks},{data:myTasks},{data:openDeals}] = await Promise.all([
+    supabase.from('activities').select('id,type,subject,body,occurred_at,companies(id,name)').gte('occurred_at',start).lte('occurred_at',end).eq('logged_by',uid).order('occurred_at'),
+    supabase.from('tasks').select('id,title,due_date,status,companies(id,name)').eq('assigned_to',uid).eq('status','open').gte('due_date',startDate).lte('due_date',endDate).order('due_date'),
+    supabase.from('tasks').select('id,title,due_date,status,companies(id,name)').eq('assigned_to',uid).eq('status','open').lte('due_date',w7).order('due_date').limit(8),
+    supabase.from('deals').select('id,title,stage,value,companies(id,name)').not('stage','in','("gewonnen","verloren")').eq('owner_id',uid).order('updated_at',{ascending:false}).limit(5)
+  ])
+  let compCount=0
+  try { const {data:cd}=await supabase.from('companies').select('id').limit(500); compCount=cd?.length||0 } catch(e){}
+  render(acts||[],calTasks||[],myTasks||[],openDeals||[],compCount)
+}
+
+function buildEvMap(acts,tasks) {
+  const m={}
+  acts.forEach(a=>{
+    const k=a.occurred_at.slice(0,10),t=new Date(a.occurred_at)
+    const hh=String(t.getHours()).padStart(2,'0'),mm=String(t.getMinutes()).padStart(2,'0')
+    ;(m[k]||(m[k]=[])).push({type:a.type,label:a.subject||activityLabel(a.type),cid:a.companies?.id,cname:a.companies?.name,time:hh+':'+mm,body:a.body||null})
+  })
+  tasks.forEach(t=>{ (m[t.due_date]||(m[t.due_date]=[])).push({type:'task',label:t.title,cid:t.companies?.id,cname:t.companies?.name,time:null,body:null}) })
+  return m
+}
+
+function evHtml(ev,small) {
+  small=small||false
+  const click=ev.cid ? "location.href='/pages/klant.html?id="+ev.cid+"'" : "document.dispatchEvent(new CustomEvent('selectDay',{detail:'"+( ev._date||'')+"'}))"
+  const lbl=ev.label.length>(small?12:20) ? ev.label.slice(0,small?12:20)+'…' : ev.label
+  return '<div class="day-event type-'+ev.type+' cal-event-wrap" onclick="'+click+'" style="'+(small?'font-size:9.5px;padding:2px 4px;margin-bottom:1px':'')+'">'+
+    '<span>'+(ev.type==='task'?'📌 ':'')+esc(lbl)+'</span>'+
+    '<div class="cal-tooltip-box">'+
+      '<div class="ctt">'+esc(ev.label)+'</div>'+
+      (ev.cname?'<div class="ctt-sub">🏢 '+esc(ev.cname)+'</div>':'')+
+      (ev.time?'<div class="ctt-sub">🕐 '+ev.time+'</div>':'')+
+      (ev.body?'<div class="ctt-body">'+esc(ev.body.slice(0,80))+(ev.body.length>80?'…':'')+'</div>':'')+
+    '</div>'+
+  '</div>'
+}
+
+function buildDay(evMap) {
+  const d=getSelectedDay(),k=localIso(d),evs=(evMap[k]||[]).sort((a,b)=>(a.time||'99:99')<(b.time||'99:99')?-1:1)
+  const tc={bel:'#4a6cf7',mail:'#00af70',meeting:'#e8943a',notitie:'#aaa',task:'#9b59b6'}
+  if(!evs.length) return '<div style="padding:32px;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:10px">📅</div><div style="font-size:15px;font-weight:600;margin-bottom:6px">Geen activiteiten op '+DAYS_FULL[d.getDay()]+' '+d.getDate()+' '+MONTHS_FULL[d.getMonth()]+'</div><div style="font-size:13px">Gebruik <strong>+ Actie loggen</strong> om iets te registreren.</div></div>'
+  return evs.map(function(ev){
+    return '<div style="display:flex;align-items:flex-start;gap:14px;padding:13px 18px;border-bottom:1px solid var(--border);cursor:'+(ev.cid?'pointer':'default')+'" onclick="'+(ev.cid?"location.href='/pages/klant.html?id="+ev.cid+"'":'void(0)')+'">'+
+      '<div style="width:42px;text-align:right;flex-shrink:0;padding-top:1px"><span style="font-size:12px;font-weight:600;color:var(--muted)">'+(ev.time||'—')+'</span></div>'+
+      '<div style="width:3px;border-radius:2px;background:'+(tc[ev.type]||'#aaa')+';align-self:stretch;flex-shrink:0;min-height:40px"></div>'+
+      '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;margin-bottom:3px">'+(ev.type==='task'?'📌 ':'')+esc(ev.label)+'</div>'+
+        (ev.cname?'<div style="font-size:12.5px;color:var(--teal-m);font-weight:500">🏢 '+esc(ev.cname)+'</div>':'')+
+        (ev.body?'<div style="font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.5">'+esc(ev.body.slice(0,120))+(ev.body.length>120?'…':'')+'</div>':'')+
+      '</div></div>'
+  }).join('')
+}
+
+function buildWeek(evMap) {
+  const days=getWeekDays(weekOff)
+  return '<div class="week-grid">'+days.map(function(d,i){
+    const k=localIso(d),evs=evMap[k]||[],vis=evs.slice(0,3),more=evs.length-3
+    return '<div class="week-day '+(isToday(d)?'today':'')+' '+(i>=5?'weekend':'')+'">'+
+      '<div class="week-day-head" onclick="document.dispatchEvent(new CustomEvent(\'selectDay\',{detail:\''+k+'\'}))" style="cursor:pointer">'+
+        '<span class="wd-name">'+DAYS_NL[i]+'</span><span class="wd-num">'+d.getDate()+'</span></div>'+
+      '<div class="week-day-events">'+
+        vis.map(function(ev){ return evHtml(Object.assign({},ev,{_date:k})) }).join('')+
+        (more>0?'<div class="cal-more" onclick="document.dispatchEvent(new CustomEvent(\'selectDay\',{detail:\''+k+'\'}))" style="cursor:pointer">+'+more+' meer</div>':'')+
+      '</div></div>'
+  }).join('')+'</div>'
+}
+
+function buildMonth(evMap) {
+  const now=new Date(),base=new Date(now.getFullYear(),now.getMonth()+monthOff,1)
+  const y=base.getFullYear(),mo=base.getMonth(),firstWd=base.getDay()===0?6:base.getDay()-1
+  const lastDay=new Date(y,mo+1,0).getDate(),todayStr=localIso(now),days=[]
+  for(let i=firstWd-1;i>=0;i--) days.push({d:new Date(y,mo,-i),other:true})
+  for(let i=1;i<=lastDay;i++) days.push({d:new Date(y,mo,i),other:false})
+  while(days.length%7!==0){const l=days[days.length-1].d;days.push({d:new Date(l.getTime()+86400000),other:true})}
+  return '<div class="month-grid">'+
+    DAYS_NL.map(function(d){return '<div class="month-day-hdr">'+d+'</div>'}).join('')+
+    days.map(function(item){
+      const k=localIso(item.d),evs=evMap[k]||[],tod=k===todayStr,wknd=[0,6].includes(item.d.getDay())
+      return '<div class="month-day '+(tod?'today':'')+' '+(item.other?'other-month':'')+' '+(wknd?'weekend':'')+'" onclick="document.dispatchEvent(new CustomEvent(\'selectDay\',{detail:\''+k+'\'}))" style="cursor:pointer">'+
+        '<div class="month-day-num">'+item.d.getDate()+'</div>'+
+        evs.slice(0,2).map(function(ev){ return evHtml(Object.assign({},ev,{_date:k}),true) }).join('')+
+        (evs.length>2?'<div class="cal-more">+'+(evs.length-2)+'</div>':'')+
+      '</div>'
+    }).join('')+
+  '</div>'
+}
+
+function buildYear(evMap) {
+  const y=new Date().getFullYear()+yearOff
+  const evDates=new Set(Object.keys(evMap).filter(function(k){return evMap[k].length>0}))
+  const todayStr=localIso(new Date())
+  return '<div class="year-grid">'+Array.from({length:12},function(_,mi){
+    const first=new Date(y,mi,1),last=new Date(y,mi+1,0).getDate()
+    const startWd=first.getDay()===0?6:first.getDay()-1,days=[]
+    for(let i=startWd-1;i>=0;i--) days.push(null)
+    for(let i=1;i<=last;i++){
+      const k=y+'-'+String(mi+1).padStart(2,'0')+'-'+String(i).padStart(2,'0')
+      days.push({n:i,k:k,ev:evDates.has(k),today:k===todayStr})
+    }
+    while(days.length%7!==0) days.push(null)
+    return '<div class="year-month"><div class="year-month-name">'+MONTHS_FULL[mi]+'</div><div class="year-month-mini">'+
+      ['M','D','W','D','V','Z','Z'].map(function(h){return '<div class="year-day-hdr">'+h+'</div>'}).join('')+
+      days.map(function(d){
+        return d ? '<div class="year-day '+(d.ev?'has-event':'')+' '+(d.today?'today':'')+'" onclick="document.dispatchEvent(new CustomEvent(\'selectDay\',{detail:\''+d.k+'\'}))" style="cursor:pointer">'+d.n+'</div>'
+                 : '<div class="year-day"></div>'
+      }).join('')+
+    '</div></div>'
+  }).join('')+'</div>'
+}
+
+function calHeader(actCount) {
+  let label='',showToday=false
+  const now=new Date()
+  if(calView==='day'){const d=getSelectedDay();label=dayOff===0?'Vandaag — '+DAYS_FULL[d.getDay()]+' '+d.getDate()+' '+MONTHS_NL[d.getMonth()]:DAYS_FULL[d.getDay()]+' '+d.getDate()+' '+MONTHS_NL[d.getMonth()]+' '+d.getFullYear();showToday=dayOff!==0}
+  else if(calView==='week'){const days=getWeekDays(weekOff);label=weekOff===0?'Deze week':weekOff===1?'Volgende week':weekOff===-1?'Vorige week':days[0].getDate()+' '+MONTHS_NL[days[0].getMonth()]+' – '+days[6].getDate()+' '+MONTHS_NL[days[6].getMonth()];showToday=weekOff!==0}
+  else if(calView==='month'){const d=new Date(now.getFullYear(),now.getMonth()+monthOff,1);label=MONTHS_FULL[d.getMonth()]+' '+d.getFullYear();showToday=monthOff!==0}
+  else{label=String(now.getFullYear()+yearOff);showToday=yearOff!==0}
+  return '<div class="card-header" style="padding:13px 18px"><div class="cal-nav">'+
+    '<button class="cal-nav-btn" id="cal-prev">‹</button>'+
+    '<span class="cal-label" style="text-transform:capitalize">'+label+'</span>'+
+    '<button class="cal-nav-btn" id="cal-next">›</button>'+
+    (showToday?'<button class="cal-nav-btn cal-nav-today" id="cal-today">Vandaag</button>':'')+
+    '</div><div style="display:flex;align-items:center;gap:10px">'+
+    '<span class="text-muted" style="font-size:12px">'+actCount+' items</span>'+
+    '<div class="cal-toggle">'+
+      '<button class="cal-toggle-btn '+(calView==='day'?'active':'')+'" data-v="day">Dag</button>'+
+      '<button class="cal-toggle-btn '+(calView==='week'?'active':'')+'" data-v="week">Week</button>'+
+      '<button class="cal-toggle-btn '+(calView==='month'?'active':'')+'" data-v="month">Maand</button>'+
+      '<button class="cal-toggle-btn '+(calView==='year'?'active':'')+'" data-v="year">Jaar</button>'+
+    '</div></div></div>'
+}
+
+function novaOpslaanLabel(type) {
+  if (type === 'taak') return 'Taak opslaan'
+  if (type === 'meeting') return 'Afspraak opslaan'
+  return 'Notitie opslaan'
+}
+
+function novaBuildWizard() {
+  return '<div class="card-header" style="border-bottom:1px solid var(--border);padding-bottom:12px">'+
+      '<div style="display:flex;align-items:center;gap:8px">'+
+        '<span style="width:22px;height:22px;background:var(--teal-m);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:800">N</span>'+
+        '<h3 style="margin:0">NOVA</h3>'+
+      '</div>'+
+      '<span style="font-size:11px;color:var(--text-muted)">Jouw AI assistent</span>'+
+    '</div>'+
+    '<div class="card-body" style="padding-top:12px" id="nova-card-body">'+
+      '<div id="nova-step-1">'+
+        '<p style="font-size:13px;font-weight:600;margin-bottom:10px">Wat wil je doen?</p>'+
+        '<div style="display:flex;flex-direction:column;gap:8px">'+
+          '<button class="nova-keuze-btn" data-type="meeting" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:white;cursor:pointer;text-align:left;font-size:13px;font-weight:500">'+
+            '<span style="font-size:18px">🤝</span><div><div style="font-weight:600">Afspraak vastleggen</div><div style="font-size:11px;color:var(--text-muted)">Meeting of gesprek registreren</div></div></button>'+
+          '<button class="nova-keuze-btn" data-type="notitie" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:white;cursor:pointer;text-align:left;font-size:13px;font-weight:500">'+
+            '<span style="font-size:18px">📝</span><div><div style="font-weight:600">Notitie maken</div><div style="font-size:11px;color:var(--text-muted)">Aantekening bij een relatie</div></div></button>'+
+          '<button class="nova-keuze-btn" data-type="taak" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:white;cursor:pointer;text-align:left;font-size:13px;font-weight:500">'+
+            '<span style="font-size:18px">✅</span><div><div style="font-weight:600">Taak aanmaken</div><div style="font-size:11px;color:var(--text-muted)">Opvolging of herinnering</div></div></button>'+
+        '</div>'+
+      '</div>'+
+      '<div id="nova-step-2" style="display:none">'+
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">'+
+          '<button id="nova-back-1" style="background:none;border:none;cursor:pointer;color:var(--teal-m);font-size:13px;padding:0">← Terug</button>'+
+          '<span id="nova-type-label" style="font-size:13px;font-weight:600"></span>'+
+        '</div>'+
+        '<p style="font-size:13px;font-weight:600;margin-bottom:8px">Over welke relatie?</p>'+
+        '<div style="display:flex;gap:8px;margin-bottom:8px">'+
+          '<button id="nova-relatie-mic" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1.5px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">'+
+            '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Spreek in</button>'+
+          '<input id="nova-relatie-input" type="text" placeholder="Of typ naam..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit"/>'+
+        '</div>'+
+        '<div id="nova-relatie-suggestions" style="display:none;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:8px;max-height:160px;overflow-y:auto"></div>'+
+        '<div id="nova-relatie-selected" style="display:none;padding:8px 12px;background:var(--teal-l);border-radius:8px;font-size:13px;color:var(--teal-d);font-weight:500;margin-bottom:10px"></div>'+
+        '<button id="nova-volgende" disabled style="width:100%;padding:10px;border-radius:8px;border:none;background:var(--teal-m);color:white;font-size:13px;font-weight:700;cursor:pointer;opacity:.4">Volgende →</button>'+
+      '</div>'+
+      '<div id="nova-step-3" style="display:none">'+
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">'+
+          '<button id="nova-back-2" style="background:none;border:none;cursor:pointer;color:var(--teal-m);font-size:13px;padding:0">← Terug</button>'+
+          '<span id="nova-stap3-label" style="font-size:13px;font-weight:600"></span>'+
+        '</div>'+
+        '<p style="font-size:13px;font-weight:600;margin-bottom:8px">Spreek je actie in:</p>'+
+        '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">'+
+          '<button id="nova-actie-mic" style="display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:10px;border:2px solid var(--teal-m);background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">'+
+            '<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Spreek in</button>'+
+          '<span id="nova-actie-status" style="font-size:12px;color:var(--text-muted);font-style:italic;flex:1">Druk en spreek...</span>'+
+        '</div>'+
+        '<div id="nova-actie-preview" style="display:none"></div>'+
+      '</div>'+
+    '</div>'
+}
+
+function render(acts,calTasks,myTasks,openDeals,compCount) {
+  const evMap=buildEvMap(acts,calTasks)
+  const totalItems=acts.length+calTasks.length
+  const overdue=myTasks.filter(function(t){return isOverdue(t.due_date)}).length
+  const pipeVal=openDeals.reduce(function(s,d){return s+(d.value||0)},0)
+  const fmt=function(v){return new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v)}
+  let calBody=''
+  if(calView==='day') calBody=buildDay(evMap)
+  else if(calView==='week') calBody=buildWeek(evMap)
+  else if(calView==='month') calBody=buildMonth(evMap)
+  else calBody=buildYear(evMap)
+
+  const takenHtml = myTasks.length ? myTasks.map(function(t){
+    const ov=isOverdue(t.due_date)
+    return '<div class="task-item"><div class="task-check" data-id="'+t.id+'"></div><div>'+
+      '<div class="task-title">'+esc(t.title)+'</div>'+
+      '<div class="task-due '+(ov?'overdue':'')+'">'+
+        (t.companies?'<a href="/pages/klant.html?id='+t.companies.id+'" style="color:var(--teal-m);font-weight:500">'+esc(t.companies.name)+'</a> · ':'')+
+        (t.due_date?formatDateShort(t.due_date):'Geen deadline')+
+        (ov?' · <strong>Verlopen!</strong>':'')+
+      '</div></div></div>'
+  }).join('') : '<p class="text-muted" style="font-size:13px;padding:8px 0">Geen open taken 🎉</p>'
+
+  document.getElementById('dash').innerHTML =
+    '<div class="quick-actions">'+
+      '<button class="quick-btn" id="btn-klant">'+
+        '<div class="quick-btn-icon"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></div>'+
+        '<div class="quick-btn-label">Nieuwe klant</div><div class="quick-btn-sub">Bedrijf toevoegen</div>'+
+      '</button>'+
+      '<button class="quick-btn" id="btn-actie">'+
+        '<div class="quick-btn-icon"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>'+
+        '<div class="quick-btn-label">Nieuwe actie</div><div class="quick-btn-sub">Bel · notitie · meeting</div>'+
+      '</button>'+
+    '</div>'+
+    '<div class="card" style="margin-bottom:20px">'+calHeader(totalItems)+'<div class="card-body" style="padding:'+(calView==='day'?'0':'14px')+'">'+calBody+'</div></div>'+
+    '<div class="stats-row">'+
+      '<div class="stat-card"><div class="stat-label">Bedrijven</div><div class="stat-value">'+compCount+'</div></div>'+
+      '<div class="stat-card"><div class="stat-label">Mijn deals</div><div class="stat-value">'+openDeals.length+'</div><div class="stat-sub">open</div></div>'+
+      '<div class="stat-card"><div class="stat-label">Mijn taken</div><div class="stat-value '+(overdue?'text-danger':'')+'">'+myTasks.length+'</div><div class="stat-sub">'+(overdue?overdue+' verlopen':'open')+'</div></div>'+
+      '<div class="stat-card"><div class="stat-label">Pipeline</div><div class="stat-value" style="font-size:'+(pipeVal>99999?'16px':'22px')+'">'+fmt(pipeVal)+'</div></div>'+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">'+
+      '<div class="card">'+
+        '<div class="card-header"><h3>Openstaande taken'+(overdue?' <span class="text-danger" style="font-size:12px">('+overdue+' verlopen)</span>':'')+'</h3><a href="/pages/taken.html" class="btn btn-sm btn-secondary">Alle taken</a></div>'+
+        '<div class="card-body" style="padding-top:8px">'+takenHtml+'</div>'+
+      '</div>'+
+      '<div class="card">'+novaBuildWizard()+'</div>'+
+    '</div>'
+
+  document.getElementById('btn-klant')?.addEventListener('click',function(){document.getElementById('klant-modal')?.classList.add('open')})
+  document.getElementById('btn-actie')?.addEventListener('click',function(){document.getElementById('actie-modal')?.classList.add('open')})
+  document.getElementById('cal-prev')?.addEventListener('click',function(){if(calView==='day')dayOff--;else if(calView==='week')weekOff--;else if(calView==='month')monthOff--;else yearOff--;loadAll()})
+  document.getElementById('cal-next')?.addEventListener('click',function(){if(calView==='day')dayOff++;else if(calView==='week')weekOff++;else if(calView==='month')monthOff++;else yearOff++;loadAll()})
+  document.getElementById('cal-today')?.addEventListener('click',function(){dayOff=0;weekOff=0;monthOff=0;yearOff=0;loadAll()})
+  document.querySelectorAll('.cal-toggle-btn').forEach(function(btn){btn.addEventListener('click',function(){calView=btn.dataset.v;dayOff=0;weekOff=0;monthOff=0;yearOff=0;loadAll()})})
+  document.querySelectorAll('.task-check').forEach(function(el){
+    el.addEventListener('click',async function(){
+      await supabase.from('tasks').update({status:'gedaan'}).eq('id',el.dataset.id)
+      el.classList.add('done')
+      el.innerHTML='<svg width="10" height="10" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>'
+      el.closest('.task-item')?.querySelector('.task-title')?.classList.add('done')
+    })
+  })
+
+  novaInitWizard(companies || [])
+}
+
+document.addEventListener('selectDay',function(e){
+  const clicked=new Date(e.detail+'T12:00:00')
+  dayOff=Math.round((clicked-new Date(localIso(new Date())+'T12:00:00'))/86400000)
+  calView='day'; loadAll()
+})
+
+let companies = []
+async function loadCompanies() {
+  const {data} = await supabase.from('companies').select('id,name').order('name').limit(500)
+  companies = data || []
+}
+
+function novaInitWizard(bedrijven) {
+  let novaType = null
+  let novaCompanyId = null
+  let novaCompanyNaam = null
+
+  const typeLabels = {meeting:'🤝 Afspraak vastleggen', notitie:'📝 Notitie maken', taak:'✅ Taak aanmaken'}
+
+  function toonStap(n) {
+    document.getElementById('nova-step-1').style.display = n===1?'block':'none'
+    document.getElementById('nova-step-2').style.display = n===2?'block':'none'
+    document.getElementById('nova-step-3').style.display = n===3?'block':'none'
+  }
+
+  function reset() {
+    novaType=null; novaCompanyId=null; novaCompanyNaam=null
+    const inp=document.getElementById('nova-relatie-input')
+    if(inp) inp.value=''
+    const sel=document.getElementById('nova-relatie-selected')
+    if(sel){sel.style.display='none';sel.textContent=''}
+    const sug=document.getElementById('nova-relatie-suggestions')
+    if(sug) sug.style.display='none'
+    const vol=document.getElementById('nova-volgende')
+    if(vol){vol.disabled=true;vol.style.opacity='.4'}
+    toonStap(1)
+  }
+
+  document.querySelectorAll('.nova-keuze-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      novaType=btn.dataset.type
+      const lbl=document.getElementById('nova-type-label')
+      if(lbl) lbl.textContent=typeLabels[novaType]||novaType
+      toonStap(2)
+    })
+  })
+
+  document.getElementById('nova-back-1')?.addEventListener('click',function(){toonStap(1)})
+  document.getElementById('nova-back-2')?.addEventListener('click',function(){toonStap(2)})
+
+  const relatieInput=document.getElementById('nova-relatie-input')
+  const relatieSug=document.getElementById('nova-relatie-suggestions')
+  const relatieSel=document.getElementById('nova-relatie-selected')
+  const volgende=document.getElementById('nova-volgende')
+
+  function selecteerBedrijf(id,naam){
+    novaCompanyId=id; novaCompanyNaam=naam
+    if(relatieSel){relatieSel.textContent='✓ '+naam;relatieSel.style.display='block'}
+    if(relatieSug) relatieSug.style.display='none'
+    if(relatieInput) relatieInput.value=naam
+    if(volgende){volgende.disabled=false;volgende.style.opacity='1'}
+  }
+
+  relatieInput?.addEventListener('input',function(){
+    const q=relatieInput.value.toLowerCase().trim()
+    if(!q){if(relatieSug)relatieSug.style.display='none';return}
+    const filtered=bedrijven.filter(function(c){return c.name.toLowerCase().includes(q)}).slice(0,6)
+    if(!filtered.length){if(relatieSug)relatieSug.style.display='none';return}
+    if(relatieSug){
+      relatieSug.innerHTML=filtered.map(function(c){
+        return '<div data-id="'+c.id+'" data-naam="'+c.name+'" style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)">'+c.name+'</div>'
+      }).join('')
+      relatieSug.style.display='block'
+      relatieSug.querySelectorAll('[data-id]').forEach(function(el){
+        el.addEventListener('mouseenter',function(){el.style.background='var(--bg-muted)'})
+        el.addEventListener('mouseleave',function(){el.style.background=''})
+        el.addEventListener('click',function(){selecteerBedrijf(el.dataset.id,el.dataset.naam)})
+      })
+    }
+  })
+
+  function micSpreek(onResultCallback) {
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition
+    if(!SR){alert('Spraakherkenning niet beschikbaar.');return}
+    const rec=new SR(); rec.lang='nl-NL'
+    rec.onresult=function(ev){onResultCallback(ev.results[0][0].transcript)}
+    rec.onerror=function(){console.log('Spraak fout')}
+    rec.start()
+    return rec
+  }
+
+  document.getElementById('nova-relatie-mic')?.addEventListener('click',function(){
+    const btn=document.getElementById('nova-relatie-mic')
+    btn.textContent='⏹ Stop...'
+    btn.style.borderColor='#ef4444';btn.style.background='#fee2e2';btn.style.color='#ef4444'
+    micSpreek(function(tekst){
+      btn.innerHTML='<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Spreek in'
+      btn.style.borderColor='var(--teal-m)';btn.style.background='var(--teal-l)';btn.style.color='var(--teal-d)'
+      if(relatieInput){relatieInput.value=tekst;relatieInput.dispatchEvent(new Event('input'))}
+    })
+  })
+
+  volgende?.addEventListener('click',function(){
+    if(!novaCompanyId) return
+    const lbl3=document.getElementById('nova-stap3-label')
+    if(lbl3) lbl3.textContent=(typeLabels[novaType]||novaType)+' voor '+novaCompanyNaam
+    toonStap(3)
+  })
+
+  document.getElementById('nova-actie-mic')?.addEventListener('click',function(){
+    const btn=document.getElementById('nova-actie-mic')
+    const status=document.getElementById('nova-actie-status')
+    const preview=document.getElementById('nova-actie-preview')
+    btn.textContent='⏹ Stop...'
+    btn.style.borderColor='#ef4444';btn.style.background='#fee2e2';btn.style.color='#ef4444'
+    if(status) status.textContent='Luistert...'
+    micSpreek(async function(tekst){
+      btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Spreek in'
+      btn.style.borderColor='var(--teal-m)';btn.style.background='var(--teal-l)';btn.style.color='var(--teal-d)'
+      if(status) status.textContent='"'+tekst+'"'
+      if(preview){preview.style.display='block';preview.innerHTML='<div style="padding:10px;background:var(--bg-muted);border-radius:8px;font-size:12px;color:var(--text-muted)"><em>NOVA analyseert...</em></div>'}
+      try {
+        const mg=new Date(); mg.setDate(mg.getDate()+1)
+        const r=await fetch('/.netlify/functions/transcribe',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:800,messages:[{role:'user',content:
+            'Je bent NOVA, CRM assistent. Type: '+novaType+', bedrijf: "'+novaCompanyNaam+'".\nOpdracht: "'+tekst+'"\nGeef JSON:\n- onderwerp: max 60 tekens\n- inhoud: max 150 woorden\n- due_date: YYYY-MM-DD of null\n- bevestiging: max 25 woorden\nAlleen JSON.'
+          }]})
+        })
+        const d=await r.json()
+        const txt=d.content?.[0]?.text||''
+        const a=JSON.parse(txt.replace(/```json\n?|```\n?/g,'').trim())
+        const opslaanLabel=novaOpslaanLabel(novaType)
+        const datumVeld=novaType==='taak' ?
+          '<div style="margin-top:8px;display:flex;align-items:center;gap:8px"><label style="font-size:12px;color:var(--text-muted)">Deadline:</label><input type="date" id="nova-datum-edit" value="'+(a.due_date||mg.toISOString().split('T')[0])+'" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px"/></div>' : ''
+        if(preview) preview.innerHTML=
+          '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:4px">'+
+            '<div style="padding:10px 14px;background:var(--bg-muted);font-size:12px;font-weight:600;color:var(--text-muted)">'+
+              '<span style="width:14px;height:14px;background:var(--teal-m);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:8px;font-weight:800;margin-right:5px">N</span>NOVA suggestie'+
+            '</div>'+
+            '<div style="padding:12px 14px">'+
+              '<div style="font-size:13px;font-weight:600;margin-bottom:6px">'+esc(a.onderwerp||tekst)+'</div>'+
+              '<textarea id="nova-inhoud-edit" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;font-family:inherit;line-height:1.5;resize:vertical;box-sizing:border-box;min-height:80px">'+esc(a.inhoud||tekst)+'</textarea>'+
+              datumVeld+
+              '<div style="display:flex;gap:8px;margin-top:10px">'+
+                '<button id="nova-accepteer" class="btn btn-primary btn-sm" style="flex:1">✓ '+opslaanLabel+'</button>'+
+                '<button id="nova-opnieuw" class="btn btn-secondary btn-sm">🎙️ Opnieuw</button>'+
+                '<button id="nova-annuleer-actie" class="btn btn-ghost btn-sm">✕</button>'+
+              '</div>'+
+            '</div>'+
+          '</div>'
+        document.getElementById('nova-accepteer')?.addEventListener('click',async function(){
+          const inhoud=document.getElementById('nova-inhoud-edit')?.value?.trim()||a.inhoud||tekst
+          const datum=document.getElementById('nova-datum-edit')?.value||mg.toISOString().split('T')[0]
+          if(novaType==='taak'){
+            await supabase.from('tasks').insert({company_id:novaCompanyId,title:a.onderwerp||inhoud.slice(0,80),due_date:datum,status:'open',assigned_to:uid})
+          } else {
+            await supabase.from('activities').insert({company_id:novaCompanyId,type:novaType==='meeting'?'meeting':'notitie',subject:a.onderwerp||inhoud.slice(0,80),body:inhoud,occurred_at:new Date().toISOString(),logged_by:uid})
+          }
+          reset(); loadAll()
+        })
+        document.getElementById('nova-opnieuw')?.addEventListener('click',function(){
+          if(preview){preview.style.display='none'}
+          if(status) status.textContent='Druk en spreek...'
+        })
+        document.getElementById('nova-annuleer-actie')?.addEventListener('click',function(){reset()})
+      } catch(e){
+        if(preview) preview.innerHTML='<div style="padding:10px;background:#fee2e2;border-radius:8px;font-size:12px;color:#991b1b">NOVA kon de opdracht niet verwerken. Probeer opnieuw.</div>'
+      }
+    })
+  })
+}
+
+await loadCompanies()
+await loadAll()
+</script>
+</body>
+</html>
