@@ -46,8 +46,14 @@
   </div>
   <script type="module">
     import { supabase } from './js/supabase.js'
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session) location.href = '/pages/dashboard.html'
+    // Check of dit een invite link is
+    const hash = window.location.hash
+    if (hash.includes('type=invite') || hash.includes('access_token')) {
+      location.href = '/set-password.html' + hash
+    } else {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) location.href = '/pages/dashboard.html'
+    }
     const errorEl = document.getElementById('error')
     const loginBtn = document.getElementById('login-btn')
     document.getElementById('form').addEventListener('submit', async e => {

@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="../css/main.css"/>
   <script src="../js/config.js"></script>
   <style>
+    .btn-link { background:none;border:none;color:var(--teal-m);cursor:pointer;font-size:inherit;padding:0;font-weight:600;text-decoration:underline;font-family:inherit; }
     /* Info grid */
     .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
     .info-item { padding: 12px 16px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
@@ -170,6 +171,64 @@ async function load() {
     supabase.from('tags').select('*').order('name'),
     supabase.from('profiles').select('id,full_name')
   ])
+
+
+  const TIMELINE_PAGE = 10
+  const BODY_MAX = 200
+
+  function renderTimeline(items, offset) {
+    if (!items.length) return '<p class="text-muted" style="font-size:13px">Nog geen activiteiten of taken.</p>'
+    const page = items.slice(offset, offset + TIMELINE_PAGE)
+    const rest = items.length - offset - page.length
+
+    const itemsHtml = page.map(function(item) {
+      if (item._kind === 'activity') {
+        const body = item.body || ''
+        const kort = body.length > BODY_MAX
+        const bodyHtml = body ? (
+          '<div class="tl-body text-muted">' +
+          esc(kort ? body.slice(0, BODY_MAX) + '…' : body) +
+          (kort ? ' <button class="btn-link tl-meer" data-full="' + esc(body).replace(/"/g,'&quot;') + '" data-kort="' + esc(body.slice(0, BODY_MAX)).replace(/"/g,'&quot;') + '">Lees meer</button>' : '') +
+          '</div>'
+        ) : ''
+        return '<div class="timeline-item">' +
+          '<div class="timeline-dot td-' + item.type + '">' + activityIcon(item.type) + '</div>' +
+          '<div class="tl-card">' +
+            '<div class="tl-head">' +
+              '<span class="tl-title">' + esc(item.subject || activityLabel(item.type)) + '</span>' +
+              '<span class="tl-meta">' + activityLabel(item.type) + ' · ' + formatDate(item.occurred_at) + '</span>' +
+            '</div>' +
+            bodyHtml +
+          '</div>' +
+        '</div>'
+      } else {
+        const over = isOverdue(item.due_date) && item.status === 'open'
+        return '<div class="timeline-item">' +
+          '<div class="timeline-dot td-task" style="cursor:' + (item.status==='open'?'pointer':'default') + '" data-task-id="' + item.id + '" onclick="document.dispatchEvent(new CustomEvent('completeTask',{detail:'' + item.id + ''}))">'+
+            (item.status==='gedaan' ? '✓' : '☑') +
+          '</div>' +
+          '<div class="tl-card">' +
+            '<div class="tl-head">' +
+              '<span class="tl-title ' + (item.status==='gedaan'?'text-muted':'') + '" style="' + (item.status==='gedaan'?'text-decoration:line-through':'') + '">' + esc(item.title) + '</span>' +
+              '<div style="display:flex;align-items:center;gap:6px">' +
+                (item.is_recurring ? '<span style="font-size:10px;background:#e8f8f2;color:#007a4d;padding:2px 6px;border-radius:10px;font-weight:600">🔄 Terugkerend</span>' : '') +
+                '<span class="tl-meta ' + (over?'text-danger':'') + '">' + (item.status==='gedaan' ? '✓ Gedaan' : over ? '⚠ Verlopen' : formatDate(item.due_date)) + '</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>'
+      }
+    }).join('')
+
+    const meerBtn = rest > 0 ?
+      '<div style="text-align:center;padding:14px 0">' +
+        '<button class="btn btn-secondary btn-sm tl-laad-meer" data-offset="' + (offset + TIMELINE_PAGE) + '">' +
+          'Laad meer (' + rest + ' resterend)' +
+        '</button>' +
+      '</div>' : ''
+
+    return '<div class="timeline">' + itemsHtml + '</div>' + meerBtn
+  }
 
   data = { company, ctags: ctags||[], contacts: contacts||[], deals: deals||[], activities: activities||[], tasks: tasks||[], attachments: attachments||[], notes: notes||[], allTags: allTags||[], allUsers: allUsers||[] }
   document.getElementById('page-title').textContent = company.name
@@ -403,43 +462,8 @@ function render() {
               <button class="btn btn-sm btn-primary" id="add-actie-btn">+ Actie loggen</button>
             </div>
           </div>
-          <div class="card-body" style="${timeline.length ? 'padding-top:16px' : ''}">
-            ${timeline.length ? `
-            <div class="timeline">
-              ${timeline.map(item => {
-                if (item._kind === 'activity') {
-                  return `
-                  <div class="timeline-item">
-                    <div class="timeline-dot td-${item.type}">${activityIcon(item.type)}</div>
-                    <div class="tl-card">
-                      <div class="tl-head">
-                        <span class="tl-title">${esc(item.subject || activityLabel(item.type))}</span>
-                        <span class="tl-meta">${activityLabel(item.type)} · ${formatDate(item.occurred_at)} · ${esc(item.profiles?.full_name || '')}</span>
-                      </div>
-                      ${item.body ? `<div class="tl-body text-muted">${esc(item.body)}</div>` : ''}
-                    </div>
-                  </div>`
-                } else {
-                  const over = isOverdue(item.due_date) && item.status === 'open'
-                  return `
-                  <div class="timeline-item">
-                    <div class="timeline-dot td-task" style="cursor:${item.status==='open'?'pointer':'default'}" data-task-id="${item.id}" onclick="document.dispatchEvent(new CustomEvent('completeTask',{detail:'${item.id}'}))">
-                      ${item.status==='gedaan' ? '✓' : '☑'}
-                    </div>
-                    <div class="tl-card">
-                      <div class="tl-head">
-                        <span class="tl-title ${item.status === 'gedaan' ? 'text-muted' : ''}" style="${item.status === 'gedaan' ? 'text-decoration:line-through' : ''}">${esc(item.title)}</span>
-                        <div style="display:flex;align-items:center;gap:6px">
-                          ${item.is_recurring ? '<span style="font-size:10px;background:#e8f8f2;color:#007a4d;padding:2px 6px;border-radius:10px;font-weight:600">🔄 Terugkerend</span>' : ''}
-                          <span class="tl-meta ${over ? 'text-danger' : ''}">${item.status === 'gedaan' ? '✓ Gedaan' : over ? '⚠ Verlopen' : formatDate(item.due_date)}</span>
-                        </div>
-                      </div>
-                      ${item.profiles ? `<div class="tl-body text-muted">${esc(item.profiles.full_name)}</div>` : ''}
-                    </div>
-                  </div>`
-                }
-              }).join('')}
-            </div>` : '<p class="text-muted" style="font-size:13px">Nog geen activiteiten of taken.</p>'}
+          <div class="card-body" style="${timeline.length ? 'padding-top:16px' : ''}" id="timeline-body">
+            ${renderTimeline(timeline, 0)}
           </div>
         </div>
 
@@ -889,6 +913,26 @@ function bindEvents() {
   }
 
   // Taak afronden vanuit tijdlijn
+  // Tijdlijn: Lees meer / Laad meer
+  document.getElementById('timeline-body')?.addEventListener('click', function(e) {
+    const meer = e.target.closest('.tl-meer')
+    if (meer) {
+      const tl = meer.closest('.tl-body')
+      const isUitgeklapt = meer.dataset.expanded === '1'
+      tl.innerHTML = esc(isUitgeklapt ? meer.dataset.kort : meer.dataset.full) +
+        ' <button class="btn-link tl-meer" data-full="' + meer.dataset.full + '" data-kort="' + meer.dataset.kort + '" data-expanded="' + (isUitgeklapt ? '' : '1') + '">' +
+        (isUitgeklapt ? 'Lees meer' : 'Lees minder') + '</button>'
+      return
+    }
+    const laad = e.target.closest('.tl-laad-meer')
+    if (laad) {
+      const offset = parseInt(laad.dataset.offset)
+      const extra = document.createElement('div')
+      extra.innerHTML = renderTimeline(timeline, offset)
+      laad.closest('div[style]').replaceWith(extra)
+    }
+  })
+
   document.addEventListener('completeTask', async (e) => {
     const taskId = e.detail
     const task = data.tasks.find(t => t.id === taskId)
