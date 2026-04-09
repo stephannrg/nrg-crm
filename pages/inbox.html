@@ -435,7 +435,7 @@ Geef ALLEEN een JSON object terug.`
         btn.disabled = true; btn.textContent = 'Bezig...'
         const { data: nieuwBedrijf, error: bedrijfError } = await supabase.from('companies')
           .insert({ name: naam, website: document.getElementById(`nieuw-website-${id}`)?.value?.trim()||null,
-            stad: document.getElementById(`nieuw-stad-${id}`)?.value?.trim()||null, status:'suspect', owner_id:uid })
+            city: document.getElementById(`nieuw-stad-${id}`)?.value?.trim()||null, status:'suspect', owner_id:uid })
           .select('id').single()
         if (bedrijfError) { btn.disabled=false; btn.textContent='Bedrijf aanmaken & notitie toevoegen'; alert('Fout: '+bedrijfError.message); return }
         const contactEmail = document.getElementById(`nieuw-email-${id}`)?.value?.trim()
