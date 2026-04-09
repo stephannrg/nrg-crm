@@ -438,11 +438,26 @@ Geef ALLEEN een JSON object terug.`
             city: document.getElementById(`nieuw-stad-${id}`)?.value?.trim()||null, status:'suspect', owner_id:uid })
           .select('id').single()
         if (bedrijfError) { btn.disabled=false; btn.textContent='Bedrijf aanmaken & notitie toevoegen'; alert('Fout: '+bedrijfError.message); return }
+        // Contactpersoon aanmaken
         const contactEmail = document.getElementById(`nieuw-email-${id}`)?.value?.trim()
-        if (contactEmail) await supabase.from('contacts').insert({ company_id:nieuwBedrijf.id, name:naam, email:contactEmail })
-        await supabase.from('activities').insert({ company_id:nieuwBedrijf.id, type:'notitie',
-          subject:email.subject||'(geen onderwerp)', body:email.samenvatting||email.raw_email?.slice(0,500),
-          occurred_at:email.received_at, logged_by:uid })
+        const contactNaam = email.geadresseerden?.find(g => g.email === contactEmail)?.naam || contactEmail || naam
+        if (contactEmail) await supabase.from('contacts').insert({ company_id:nieuwBedrijf.id, name:contactNaam, email:contactEmail })
+
+        // Notitie aanmaken met volledige mailinhoud
+        const bodyDelen = []
+        if (email.samenvatting) bodyDelen.push(email.samenvatting)
+        if (email.suggestie_toelichting) bodyDelen.push('NOVA: ' + email.suggestie_toelichting)
+        if (email.bijlagen_samenvatting) bodyDelen.push('Bijlagen: ' + email.bijlagen_samenvatting)
+        if (!bodyDelen.length && email.raw_email) bodyDelen.push(email.raw_email.slice(0, 500))
+
+        const { error: notitieError } = await supabase.from('activities').insert({
+          company_id: nieuwBedrijf.id, type: 'notitie',
+          subject: email.subject || '(geen onderwerp)',
+          body: bodyDelen.join('\n\n'),
+          occurred_at: email.received_at, logged_by: uid
+        })
+        if (notitieError) { alert('Bedrijf aangemaakt maar notitie mislukt: ' + notitieError.message); }
+
         await supabase.from('email_inbox').delete().eq('id', id)
         await load()
       })
