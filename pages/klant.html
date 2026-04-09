@@ -164,10 +164,10 @@ async function load() {
     supabase.from('company_tags').select('tag_id,tags(id,name,type)').eq('company_id', cid),
     supabase.from('contacts').select('*').eq('company_id', cid).order('is_primary', { ascending: false }),
     supabase.from('deals').select('*').eq('company_id', cid).order('created_at', { ascending: false }),
-    supabase.from('activities').select('*,profiles(full_name)').eq('company_id', cid).order('occurred_at', { ascending: false }),
+    supabase.from('activities').select('*').eq('company_id', cid).order('occurred_at', { ascending: false }),
     supabase.from('tasks').select('*').eq('company_id', cid).order('due_date'),
-    supabase.from('attachments').select('*,profiles(full_name)').eq('company_id', cid).order('created_at', { ascending: false }),
-    supabase.from('company_notes').select('*,profiles(full_name)').eq('company_id', cid).order('created_at', { ascending: false }),
+    supabase.from('attachments').select('*').eq('company_id', cid).order('created_at', { ascending: false }),
+    supabase.from('company_notes').select('*').eq('company_id', cid).order('created_at', { ascending: false }),
     supabase.from('tags').select('*').order('name'),
     supabase.from('profiles').select('id,full_name')
   ])
