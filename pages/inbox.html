@@ -381,21 +381,34 @@ Geef ALLEEN een JSON object terug.`
               const snapEmail = Object.assign({}, email)
               const snapAnalyse = Object.assign({}, analyse)
               document.getElementById(`nova-bevestig-${id}`).addEventListener('click', async () => {
+                // Bepaal company_id: NOVA suggestie > email match > null
+                let compId = null
+                if (snapAnalyse.company_id && snapAnalyse.company_id.length === 36) compId = snapAnalyse.company_id
+                else if (snapEmail.match_id && snapEmail.match_type === 'bedrijf') compId = snapEmail.match_id
+
+                // Bouw body op
                 const bodyDelen = []
                 if (snapAnalyse.inhoud) bodyDelen.push(snapAnalyse.inhoud)
-                if (snapEmail.samenvatting && snapEmail.samenvatting !== snapAnalyse.inhoud) bodyDelen.push('Mailsamenvatting: ' + snapEmail.samenvatting)
+                if (snapEmail.samenvatting && snapEmail.samenvatting !== snapAnalyse.inhoud) bodyDelen.push('\n---\nMailsamenvatting: ' + snapEmail.samenvatting)
                 if (snapEmail.suggestie_toelichting) bodyDelen.push('NOVA: ' + snapEmail.suggestie_toelichting)
-                const compId = snapAnalyse.company_id && snapAnalyse.company_id !== 'null' ? snapAnalyse.company_id : null
-                const { error } = await supabase.from('activities').insert({
+
+                const payload = {
                   company_id: compId,
                   type: 'notitie',
                   subject: (snapAnalyse.inhoud || snapEmail.subject || '(geen onderwerp)').slice(0,80),
-                  body: bodyDelen.join('\n\n') || snapAnalyse.inhoud || '',
-                  occurred_at: snapEmail.received_at ? new Date(snapEmail.received_at).toISOString() : new Date().toISOString(),
+                  body: bodyDelen.join('\n') || snapAnalyse.inhoud || snapEmail.samenvatting || '',
+                  occurred_at: new Date().toISOString(),
                   logged_by: uid
-                })
-                if (error) { alert('Fout bij opslaan notitie: ' + JSON.stringify(error)); return }
-                await supabase.from('email_inbox').delete().eq('id', id); await load()
+                }
+
+                const { data: inserted, error } = await supabase.from('activities').insert(payload).select()
+                if (error) {
+                  alert('Fout: ' + (error.message || JSON.stringify(error)))
+                  return
+                }
+                await supabase.from('email_inbox').update({verwerkt: true}).eq('id', id)
+                await supabase.from('email_inbox').delete().eq('id', id)
+                await load()
               })
             } else if (analyse.type === 'taak') {
               analyseActiesEl.innerHTML = `
