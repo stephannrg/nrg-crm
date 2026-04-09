@@ -168,6 +168,22 @@ Geef ALLEEN een JSON object terug.`
     const analysisText = response.content[0].text;
     const analysis = JSON.parse(analysisText.replace(/```json|```/g, '').trim());
 
+    // Valideer match_id — Haiku geeft soms een naam ipv UUID
+    // Als match_id geen geldige UUID is, zoek op naam
+    let resolvedMatchId = null;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (analysis.match_id && uuidRegex.test(analysis.match_id)) {
+      resolvedMatchId = analysis.match_id;
+    } else if (analysis.match_naam && companies) {
+      // Zoek bedrijf op naam (exact of bevat)
+      const gevonden = companies.find(c =>
+        c.name.toLowerCase() === analysis.match_naam.toLowerCase() ||
+        c.name.toLowerCase().includes(analysis.match_naam.toLowerCase()) ||
+        analysis.match_naam.toLowerCase().includes(c.name.toLowerCase())
+      );
+      if (gevonden) resolvedMatchId = gevonden.id;
+    }
+
     const { error } = await supabase.from('email_inbox').insert({
       from_email: from,
       to_email: externeGeadresseerden || null,
@@ -179,7 +195,7 @@ Geef ALLEEN een JSON object terug.`
       geadresseerden: analysis.geadresseerden || null,
       bijlagen_samenvatting: analysis.bijlagen_samenvatting || null,
       match_type: analysis.match_type,
-      match_id: analysis.match_id,
+      match_id: resolvedMatchId,
       match_naam: analysis.match_naam,
       match_zekerheid: analysis.match_zekerheid,
       suggestie_actie: analysis.suggestie_actie,
