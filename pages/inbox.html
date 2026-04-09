@@ -319,14 +319,15 @@ Geef ALLEEN een JSON object terug.`
         if (email.suggestie_toelichting) bodyParts2.push('NOVA: ' + email.suggestie_toelichting)
         if (email.bijlagen_samenvatting) bodyParts2.push('Bijlagen: ' + email.bijlagen_samenvatting)
         if (!bodyParts2.length && email.raw_email) bodyParts2.push(email.raw_email.slice(0, 500))
-        const { error } = await supabase.from('activities').insert({
+        const { data: actData, error } = await supabase.from('activities').insert({
           company_id: companyId, type: 'mail',
           subject: email.subject || '(geen onderwerp)',
           body: bodyParts2.join('\n\n'),
           occurred_at: email.received_at ? new Date(email.received_at).toISOString() : new Date().toISOString(), logged_by: uid
-        })
-        if (!error) { await supabase.from('email_inbox').delete().eq('id', id); await load() }
-        else { btn.disabled = false; btn.textContent = '+ Notitie toevoegen'; alert('Fout: '+error.message) }
+        }).select()
+        if (error) { btn.disabled=false; btn.textContent='+ Notitie toevoegen'; alert('Fout: '+error.message); return }
+        if (!actData || actData.length === 0) { alert('Notitie niet opgeslagen — controleer RLS policy op activities tabel'); btn.disabled=false; btn.textContent='+ Notitie toevoegen'; return }
+        await supabase.from('email_inbox').delete().eq('id', id); await load()
       })
     })
 
