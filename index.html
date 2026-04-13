@@ -46,9 +46,12 @@
   </div>
   <script type="module">
     import { supabase } from './js/supabase.js'
-    // Check of dit een invite link is
     const hash = window.location.hash
-    if (hash.includes('type=invite') || hash.includes('access_token')) {
+    // Invite of recovery flow → set-password pagina
+    if (hash.includes('type=invite') || hash.includes('type=recovery') || hash.includes('token_hash')) {
+      location.href = '/set-password.html' + hash
+    } else if (hash.includes('access_token')) {
+      // Supabase stuurt access_token mee na recovery
       location.href = '/set-password.html' + hash
     } else {
       const { data: { session } } = await supabase.auth.getSession()
