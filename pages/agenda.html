@@ -3,60 +3,49 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta name="apple-mobile-web-app-capable" content="yes"/>
   <title>Agenda · NRG CRM</title>
   <link rel="stylesheet" href="/css/main.css"/>
   <style>
-    .agenda-toolbar { display:flex; align-items:center; gap:10px; padding:16px 22px; border-bottom:1px solid var(--border); background:var(--surface); }
-    .agenda-toolbar h1 { font-size:16px; font-weight:700; color:var(--dark); flex:1; }
+    .agenda-toolbar { display:flex; align-items:center; gap:10px; padding:12px 22px; border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0; flex-wrap:wrap; }
     .view-btns { display:flex; border:1px solid var(--border); overflow:hidden; }
     .view-btn { padding:7px 14px; font-size:12px; font-weight:600; cursor:pointer; background:white; border:none; border-right:1px solid var(--border); color:var(--muted); transition:all .15s; }
     .view-btn:last-child { border-right:none; }
     .view-btn.active { background:var(--teal); color:white; }
     .nav-btns { display:flex; gap:4px; }
-    .nav-btn { padding:6px 10px; background:white; border:1px solid var(--border); cursor:pointer; font-size:13px; font-weight:600; color:var(--text); transition:all .15s; }
+    .nav-btn { padding:6px 12px; background:white; border:1px solid var(--border); cursor:pointer; font-size:13px; font-weight:600; color:var(--text); }
     .nav-btn:hover { background:var(--bg); }
-    .period-label { font-size:13px; font-weight:600; color:var(--text); min-width:140px; text-align:center; }
-    .agenda-body { flex:1; overflow:auto; padding:20px 22px; }
-
-    /* Maand grid */
-    .maand-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:0; border:1px solid var(--border); }
-    .maand-header-day { padding:8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); text-align:center; border-bottom:1px solid var(--border); background:var(--bg); }
-    .maand-dag { min-height:90px; padding:6px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); vertical-align:top; position:relative; background:white; }
-    .maand-dag:nth-child(7n) { border-right:none; }
+    .period-label { font-size:13px; font-weight:700; color:var(--text); min-width:160px; }
+    .agenda-content { flex:1; overflow:auto; padding:20px 22px; }
+    .maand-grid { display:grid; grid-template-columns:repeat(7,1fr); border-top:1px solid var(--border); border-left:1px solid var(--border); }
+    .maand-dag-header { padding:8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); text-align:center; border-right:1px solid var(--border); border-bottom:1px solid var(--border); background:var(--bg); }
+    .maand-dag { min-height:100px; padding:6px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); background:white; }
     .maand-dag.andere-maand { background:#fafafa; }
     .maand-dag.vandaag { background:#f0fdf8; }
-    .dag-nr { font-size:12px; font-weight:600; color:var(--muted); margin-bottom:4px; }
-    .maand-dag.vandaag .dag-nr { background:var(--teal); color:white; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; }
-
-    /* Week grid */
-    .week-grid { display:grid; grid-template-columns:60px repeat(7,1fr); border:1px solid var(--border); }
-    .week-header { padding:10px 8px; font-size:11px; font-weight:700; text-align:center; border-bottom:1px solid var(--border); border-right:1px solid var(--border); background:var(--bg); }
-    .week-header.vandaag-col { background:#f0fdf8; }
-    .week-uur { font-size:11px; color:var(--muted); text-align:right; padding:0 8px; height:48px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); display:flex; align-items:flex-start; padding-top:4px; }
-    .week-cel { height:48px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); position:relative; }
-    .week-cel:last-child { border-right:none; }
-    .week-cel.vandaag-col { background:#f0fdf8; }
-
-    /* Jaar grid */
-    .jaar-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
-    .mini-maand { border:1px solid var(--border); background:white; }
-    .mini-maand-header { padding:8px 12px; font-size:12px; font-weight:700; color:var(--dark); border-bottom:1px solid var(--border); background:var(--bg); }
-    .mini-grid { display:grid; grid-template-columns:repeat(7,1fr); }
-    .mini-dag-header { font-size:9px; font-weight:600; text-align:center; color:var(--muted); padding:4px 0; }
-    .mini-dag { font-size:10px; text-align:center; padding:3px 0; cursor:pointer; color:var(--text); }
-    .mini-dag.andere-maand { color:#ccc; }
-    .mini-dag.vandaag { background:var(--teal); color:white; border-radius:50%; width:18px; height:18px; display:flex; align-items:center; justify-content:center; margin:1px auto; font-size:9px; }
-    .mini-dag.heeft-items { position:relative; font-weight:700; color:var(--teal); }
-
-    /* Events */
-    .agenda-event { font-size:11px; padding:2px 5px; margin-bottom:2px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-left:2px solid; }
-    .event-taak { background:#f0fdf8; border-color:var(--green); color:#065f46; }
+    .dag-nr { font-size:12px; font-weight:600; color:var(--muted); margin-bottom:4px; display:inline-block; width:22px; height:22px; text-align:center; line-height:22px; }
+    .maand-dag.vandaag .dag-nr { background:var(--teal); color:white; border-radius:50%; font-size:11px; }
+    .agenda-event { font-size:11px; padding:2px 5px; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border-left:2px solid; cursor:pointer; }
+    .event-taak { background:#f0fdf8; border-color:#00af70; color:#065f46; }
     .event-bel { background:#fef3e2; border-color:#f59e0b; color:#92400e; }
     .event-mail { background:#eff6ff; border-color:#3b82f6; color:#1e40af; }
     .event-notitie { background:#faf5ff; border-color:#8b5cf6; color:#5b21b6; }
     .event-meeting { background:#fff1f2; border-color:#ef4444; color:#991b1b; }
-    .meer-events { font-size:10px; color:var(--muted); cursor:pointer; padding:2px 5px; }
+    .meer-events { font-size:10px; color:var(--muted); padding:2px 5px; }
+    .week-wrap { overflow-x:auto; }
+    .week-grid { display:grid; grid-template-columns:56px repeat(7,1fr); min-width:600px; border-top:1px solid var(--border); border-left:1px solid var(--border); }
+    .week-col-header { padding:8px; font-size:11px; font-weight:700; text-align:center; border-right:1px solid var(--border); border-bottom:1px solid var(--border); background:var(--bg); }
+    .week-col-header.vandaag { background:#f0fdf8; color:var(--teal); }
+    .week-uur-label { font-size:10px; color:var(--muted); text-align:right; padding:2px 6px 0 0; border-right:1px solid var(--border); border-bottom:1px solid var(--border); height:44px; }
+    .week-cel { border-right:1px solid var(--border); border-bottom:1px solid var(--border); height:44px; position:relative; }
+    .week-cel.vandaag { background:#f0fdf8; }
+    .jaar-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+    .mini-maand { border:1px solid var(--border); background:white; }
+    .mini-header { padding:8px 10px; font-size:12px; font-weight:700; color:var(--dark); border-bottom:1px solid var(--border); background:var(--bg); }
+    .mini-grid { display:grid; grid-template-columns:repeat(7,1fr); padding:4px; gap:1px; }
+    .mini-dh { font-size:9px; font-weight:600; text-align:center; color:var(--muted); padding:3px 0; }
+    .mini-d { font-size:10px; text-align:center; padding:2px; color:var(--text); }
+    .mini-d.andere-maand { color:#ccc; }
+    .mini-d.vandaag { background:var(--teal); color:white; border-radius:50%; }
+    .mini-d.heeft-items { font-weight:700; color:var(--teal); }
   </style>
 </head>
 <body>
@@ -64,15 +53,15 @@
   <div id="shell-placeholder"></div>
   <div class="main">
     <div class="topbar">
-      <span id="page-title" style="font-weight:700;font-size:15px">Agenda</span>
+      <span style="font-weight:700;font-size:15px">Agenda</span>
     </div>
     <div class="agenda-toolbar">
       <div class="nav-btns">
-        <button class="nav-btn" id="btn-prev">‹</button>
+        <button class="nav-btn" id="btn-prev">&#8249;</button>
         <button class="nav-btn" id="btn-today">Vandaag</button>
-        <button class="nav-btn" id="btn-next">›</button>
+        <button class="nav-btn" id="btn-next">&#8250;</button>
       </div>
-      <div class="period-label" id="period-label"></div>
+      <div class="period-label" id="period-label">Laden...</div>
       <div style="flex:1"></div>
       <div class="view-btns">
         <button class="view-btn" id="view-week">Week</button>
@@ -80,8 +69,8 @@
         <button class="view-btn" id="view-jaar">Jaar</button>
       </div>
     </div>
-    <div class="agenda-body" id="agenda-body">
-      <div style="text-align:center;padding:40px;color:var(--muted)">Laden...</div>
+    <div class="agenda-content" id="agenda-content">
+      <div style="text-align:center;padding:60px;color:var(--muted)">Laden...</div>
     </div>
   </div>
 </div>
@@ -92,242 +81,99 @@ import { initShell } from '../js/shell.js'
 const session = await requireAuth()
 if (!session) throw new Error('Not authenticated')
 
-await initShell('agenda')
-
-// Event listeners na shell render
-document.getElementById('view-maand').addEventListener('click', () => {
-  view = 'maand'
-  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'))
-  document.getElementById('view-maand').classList.add('active')
-  render()
-})
-document.getElementById('view-week').addEventListener('click', () => {
-  view = 'week'
-  cursor = new Date()
-  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'))
-  document.getElementById('view-week').classList.add('active')
-  render()
-})
-document.getElementById('view-jaar').addEventListener('click', () => {
-  view = 'jaar'
-  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'))
-  document.getElementById('view-jaar').classList.add('active')
-  render()
-})
-document.getElementById('btn-prev').addEventListener('click', () => {
-  if (view === 'maand') cursor.setMonth(cursor.getMonth() - 1)
-  else if (view === 'week') cursor.setDate(cursor.getDate() - 7)
-  else cursor.setFullYear(cursor.getFullYear() - 1)
-  render()
-})
-document.getElementById('btn-next').addEventListener('click', () => {
-  if (view === 'maand') cursor.setMonth(cursor.getMonth() + 1)
-  else if (view === 'week') cursor.setDate(cursor.getDate() + 7)
-  else cursor.setFullYear(cursor.getFullYear() + 1)
-  render()
-})
-document.getElementById('btn-today').addEventListener('click', () => {
-  cursor = new Date()
-  cursor.setDate(1)
-  render()
-})
-
 const DAGEN = ['Ma','Di','Wo','Do','Vr','Za','Zo']
 const MAANDEN = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December']
-
-let view = 'maand'
-let cursor = new Date()
-cursor.setDate(1)
-let events = []
+let view = 'maand', cursor = new Date(), events = []
 
 async function laadEvents() {
-  // Laad taken
-  const { data: taken } = await supabase
-    .from('tasks')
-    .select('id, title, due_date, status, company_id')
-    .not('due_date', 'is', null)
-
-  // Laad activiteiten (meetings, bellen etc)
-  const { data: activiteiten } = await supabase
-    .from('activities')
-    .select('id, type, subject, occurred_at, company_id')
-    .order('occurred_at', { ascending: false })
-    .limit(500)
-
+  const { data: taken } = await supabase.from('tasks').select('id,title,due_date,status').not('due_date','is',null)
+  const { data: act } = await supabase.from('activities').select('id,type,subject,occurred_at').order('occurred_at',{ascending:false}).limit(300)
   events = []
-
-  if (taken) taken.forEach(t => {
-    if (!t.due_date) return
-    events.push({
-      id: t.id,
-      datum: new Date(t.due_date),
-      label: t.title,
-      type: 'taak',
-      klasse: t.status === 'gedaan' ? 'event-taak' : 'event-taak',
-      afgevinkt: t.status === 'gedaan'
-    })
-  })
-
-  if (activiteiten) activiteiten.forEach(a => {
-    if (!a.occurred_at) return
-    events.push({
-      id: a.id,
-      datum: new Date(a.occurred_at),
-      label: a.subject || a.type,
-      type: a.type,
-      klasse: 'event-' + a.type
-    })
-  })
+  if (taken) taken.forEach(t => events.push({ datum: new Date(t.due_date), label: t.title, type: 'taak', klasse: 'event-taak', afgevinkt: t.status === 'gedaan' }))
+  if (act) act.forEach(a => { if (a.occurred_at) events.push({ datum: new Date(a.occurred_at), label: a.subject || a.type, type: a.type, klasse: 'event-' + (a.type||'notitie') }) })
 }
 
-function eventsOpDag(d) {
-  return events.filter(e => {
-    const ed = e.datum
-    return ed.getFullYear() === d.getFullYear() &&
-           ed.getMonth() === d.getMonth() &&
-           ed.getDate() === d.getDate()
-  })
-}
+function evOp(d) { return events.filter(e => { const ed=e.datum; return ed.getFullYear()===d.getFullYear()&&ed.getMonth()===d.getMonth()&&ed.getDate()===d.getDate() }) }
 
 function renderMaand() {
-  const jaar = cursor.getFullYear()
-  const maand = cursor.getMonth()
+  const jaar=cursor.getFullYear(), maand=cursor.getMonth()
   document.getElementById('period-label').textContent = MAANDEN[maand] + ' ' + jaar
-
-  const eerstedag = new Date(jaar, maand, 1)
-  let startDag = eerstedag.getDay() - 1
-  if (startDag < 0) startDag = 6
-
-  const aantalDagen = new Date(jaar, maand + 1, 0).getDate()
-  const vandaag = new Date()
-
-  let html = '<div class="maand-grid">'
-  DAGEN.forEach(d => html += `<div class="maand-header-day">${d}</div>`)
-
-  // Vorige maand vullen
-  const vorigeMaandDagen = new Date(jaar, maand, 0).getDate()
-  for (let i = startDag - 1; i >= 0; i--) {
-    const d = new Date(jaar, maand - 1, vorigeMaandDagen - i)
-    html += `<div class="maand-dag andere-maand"><div class="dag-nr">${vorigeMaandDagen - i}</div></div>`
+  let start = new Date(jaar,maand,1).getDay()-1; if(start<0) start=6
+  const days = new Date(jaar,maand+1,0).getDate()
+  const vd = new Date(); const vorigeDagen = new Date(jaar,maand,0).getDate()
+  let h = '<div class="maand-grid">'
+  DAGEN.forEach(d => h += '<div class="maand-dag-header">'+d+'</div>')
+  for(let i=start-1;i>=0;i--) h += '<div class="maand-dag andere-maand"><span class="dag-nr">'+( vorigeDagen-i)+'</span></div>'
+  for(let dag=1;dag<=days;dag++){
+    const d=new Date(jaar,maand,dag), ev=evOp(d), isVd=d.toDateString()===vd.toDateString()
+    let evH=ev.slice(0,3).map(e=>'<div class="agenda-event '+e.klasse+'" title="'+e.label+'">'+( e.afgevinkt?'&#x2713; ':'' )+e.label+'</div>').join('')
+    if(ev.length>3) evH+='<div class="meer-events">+'+(ev.length-3)+' meer</div>'
+    h+='<div class="'+( isVd?'maand-dag vandaag':'maand-dag')+'"><span class="dag-nr">'+dag+'</span>'+evH+'</div>'
   }
-
-  // Huidige maand
-  for (let dag = 1; dag <= aantalDagen; dag++) {
-    const d = new Date(jaar, maand, dag)
-    const isVandaag = d.toDateString() === vandaag.toDateString()
-    const dagEvents = eventsOpDag(d)
-    const max = 3
-    const klasse = isVandaag ? 'maand-dag vandaag' : 'maand-dag'
-
-    let evHtml = dagEvents.slice(0, max).map(e =>
-      `<div class="agenda-event ${e.klasse}" title="${e.label}">${e.afgevinkt ? '✓ ' : ''}${e.label}</div>`
-    ).join('')
-
-    if (dagEvents.length > max) {
-      evHtml += `<div class="meer-events">+${dagEvents.length - max} meer</div>`
-    }
-
-    html += `<div class="${klasse}"><div class="dag-nr">${dag}</div>${evHtml}</div>`
-  }
-
-  // Volgende maand vullen
-  const totaalCellen = Math.ceil((startDag + aantalDagen) / 7) * 7
-  const rest = totaalCellen - startDag - aantalDagen
-  for (let i = 1; i <= rest; i++) {
-    html += `<div class="maand-dag andere-maand"><div class="dag-nr">${i}</div></div>`
-  }
-
-  html += '</div>'
-  document.getElementById('agenda-body').innerHTML = html
+  const tot=Math.ceil((start+days)/7)*7
+  for(let i=1;i<=tot-start-days;i++) h+='<div class="maand-dag andere-maand"><span class="dag-nr">'+i+'</span></div>'
+  h+='</div>'
+  document.getElementById('agenda-content').innerHTML=h
 }
 
 function renderWeek() {
-  // Maandag van de week van cursor
-  const d = new Date(cursor)
-  const dag = d.getDay() === 0 ? 6 : d.getDay() - 1
-  d.setDate(d.getDate() - dag)
-
-  const vandaag = new Date()
-  const weekDagen = []
-  for (let i = 0; i < 7; i++) {
-    const wd = new Date(d)
-    wd.setDate(d.getDate() + i)
-    weekDagen.push(wd)
-  }
-
-  const eerste = weekDagen[0]
-  const laatste = weekDagen[6]
-  document.getElementById('period-label').textContent =
-    `${eerste.getDate()} ${MAANDEN[eerste.getMonth()].slice(0,3)} – ${laatste.getDate()} ${MAANDEN[laatste.getMonth()].slice(0,3)} ${laatste.getFullYear()}`
-
-  let html = '<div class="week-grid">'
-
-  // Header
-  html += '<div class="week-header" style="border-bottom:1px solid var(--border)"></div>'
-  weekDagen.forEach(wd => {
-    const isVandaag = wd.toDateString() === vandaag.toDateString()
-    html += `<div class="week-header${isVandaag ? ' vandaag-col' : ''}">${DAGEN[wd.getDay() === 0 ? 6 : wd.getDay() - 1]} ${wd.getDate()}</div>`
-  })
-
-  // Uren
-  for (let uur = 7; uur <= 20; uur++) {
-    html += `<div class="week-uur">${uur}:00</div>`
-    weekDagen.forEach(wd => {
-      const isVandaag = wd.toDateString() === vandaag.toDateString()
-      const dagEvents = eventsOpDag(wd).filter(e => e.datum.getHours() === uur)
-      let evHtml = dagEvents.map(e =>
-        `<div class="agenda-event ${e.klasse}" style="position:absolute;left:2px;right:2px;top:2px" title="${e.label}">${e.label}</div>`
-      ).join('')
-      html += `<div class="week-cel${isVandaag ? ' vandaag-col' : ''}">${evHtml}</div>`
+  const d=new Date(cursor), dag=d.getDay()===0?6:d.getDay()-1; d.setDate(d.getDate()-dag)
+  const vd=new Date(), wk=Array.from({length:7},(_,i)=>{const w=new Date(d);w.setDate(d.getDate()+i);return w})
+  document.getElementById('period-label').textContent=wk[0].getDate()+' '+MAANDEN[wk[0].getMonth()].slice(0,3)+' – '+wk[6].getDate()+' '+MAANDEN[wk[6].getMonth()].slice(0,3)+' '+wk[6].getFullYear()
+  let h='<div class="week-wrap"><div class="week-grid"><div class="week-col-header"></div>'
+  wk.forEach(w => h+='<div class="week-col-header'+(w.toDateString()===vd.toDateString()?'vandaag':'')+'">'+DAGEN[w.getDay()===0?6:w.getDay()-1]+' '+w.getDate()+'</div>')
+  for(let uur=7;uur<=20;uur++){
+    h+='<div class="week-uur-label">'+uur+':00</div>'
+    wk.forEach(w=>{
+      const isVd=w.toDateString()===vd.toDateString()
+      const ev=evOp(w).filter(e=>e.datum.getHours()===uur)
+      const evH=ev.map(e=>'<div class="agenda-event '+e.klasse+'" style="position:absolute;left:2px;right:2px;top:2px;font-size:10px">'+e.label+'</div>').join('')
+      h+='<div class="week-cel'+(isVd?' vandaag':'')+'">'+evH+'</div>'
     })
   }
-
-  html += '</div>'
-  document.getElementById('agenda-body').innerHTML = html
+  h+='</div></div>'
+  document.getElementById('agenda-content').innerHTML=h
 }
 
 function renderJaar() {
-  const jaar = cursor.getFullYear()
-  document.getElementById('period-label').textContent = jaar.toString()
-  const vandaag = new Date()
-
-  let html = '<div class="jaar-grid">'
-
-  for (let m = 0; m < 12; m++) {
-    const eerstedag = new Date(jaar, m, 1)
-    let startDag = eerstedag.getDay() - 1
-    if (startDag < 0) startDag = 6
-    const aantalDagen = new Date(jaar, m + 1, 0).getDate()
-
-    html += `<div class="mini-maand"><div class="mini-maand-header">${MAANDEN[m]}</div><div class="mini-grid">`
-    DAGEN.forEach(d => html += `<div class="mini-dag-header">${d[0]}</div>`)
-
-    for (let i = 0; i < startDag; i++) html += '<div class="mini-dag andere-maand"></div>'
-
-    for (let dag = 1; dag <= aantalDagen; dag++) {
-      const d = new Date(jaar, m, dag)
-      const isVandaag = d.toDateString() === vandaag.toDateString()
-      const heeftItems = eventsOpDag(d).length > 0
-      let klasse = 'mini-dag'
-      if (isVandaag) klasse += ' vandaag'
-      else if (heeftItems) klasse += ' heeft-items'
-      html += `<div class="${klasse}">${dag}</div>`
+  const jaar=cursor.getFullYear(); document.getElementById('period-label').textContent=jaar.toString()
+  const vd=new Date(); let h='<div class="jaar-grid">'
+  for(let m=0;m<12;m++){
+    let s=new Date(jaar,m,1).getDay()-1; if(s<0) s=6
+    const days=new Date(jaar,m+1,0).getDate()
+    h+='<div class="mini-maand"><div class="mini-header">'+MAANDEN[m]+'</div><div class="mini-grid">'
+    DAGEN.forEach(d=>h+='<div class="mini-dh">'+d[0]+'</div>')
+    for(let i=0;i<s;i++) h+='<div class="mini-d andere-maand"></div>'
+    for(let dag=1;dag<=days;dag++){
+      const d=new Date(jaar,m,dag), isVd=d.toDateString()===vd.toDateString(), heeft=evOp(d).length>0
+      h+='<div class="mini-d'+(isVd?' vandaag':heeft?' heeft-items':'')+'">'+dag+'</div>'
     }
-
-    html += '</div></div>'
+    h+='</div></div>'
   }
-
-  html += '</div>'
-  document.getElementById('agenda-body').innerHTML = html
+  h+='</div>'
+  document.getElementById('agenda-content').innerHTML=h
 }
 
-function render() {
-  if (view === 'maand') renderMaand()
-  else if (view === 'week') renderWeek()
-  else renderJaar()
-}
+function render(){ if(view==='maand') renderMaand(); else if(view==='week') renderWeek(); else renderJaar() }
 
-// Laden
+document.getElementById('btn-prev').addEventListener('click',()=>{
+  if(view==='maand') cursor.setMonth(cursor.getMonth()-1)
+  else if(view==='week') cursor.setDate(cursor.getDate()-7)
+  else cursor.setFullYear(cursor.getFullYear()-1)
+  render()
+})
+document.getElementById('btn-next').addEventListener('click',()=>{
+  if(view==='maand') cursor.setMonth(cursor.getMonth()+1)
+  else if(view==='week') cursor.setDate(cursor.getDate()+7)
+  else cursor.setFullYear(cursor.getFullYear()+1)
+  render()
+})
+document.getElementById('btn-today').addEventListener('click',()=>{ cursor=new Date(); render() })
+document.getElementById('view-maand').addEventListener('click',()=>{ view='maand'; document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active')); document.getElementById('view-maand').classList.add('active'); render() })
+document.getElementById('view-week').addEventListener('click',()=>{ view='week'; document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active')); document.getElementById('view-week').classList.add('active'); render() })
+document.getElementById('view-jaar').addEventListener('click',()=>{ view='jaar'; document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active')); document.getElementById('view-jaar').classList.add('active'); render() })
+
+await initShell('agenda')
 await laadEvents()
 render()
 </script>

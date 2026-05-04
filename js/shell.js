@@ -24,11 +24,11 @@ export async function initShell(activeNav) {
 
   const navItems = [
     { key: 'dashboard', label: 'Dashboard', href: '/pages/dashboard.html' },
-    { key: 'klanten',   label: 'Klanten',   href: '/pages/klanten.html' },
-    { key: 'pipeline',  label: 'Pipeline',  href: '/pages/pipeline.html' },
+    { key: 'agenda',    label: 'Agenda',    href: '/pages/agenda.html' },
     { key: 'taken',     label: 'Taken',     href: '/pages/taken.html' },
     { key: 'inbox',     label: 'Inbox',     href: '/pages/inbox.html', badge: inboxCount > 0 ? inboxCount : null },
-    { key: 'agenda',    label: 'Agenda',    href: '/pages/agenda.html' },
+    { key: 'klanten',   label: 'Klanten',   href: '/pages/klanten.html' },
+    { key: 'pipeline',  label: 'Pipeline',  href: '/pages/pipeline.html' },
   ]
 
   if (isAdmin) navItems.push({ key: 'beheer', label: 'Beheer', href: '/pages/beheer.html' })
