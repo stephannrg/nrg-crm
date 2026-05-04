@@ -3,83 +3,80 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Agenda · NRG CRM</title>
+  <title>Agenda - NRG CRM</title>
   <link rel="stylesheet" href="/css/main.css"/>
   <style>
-    .agenda-toolbar { display:flex; align-items:center; gap:10px; padding:12px 22px; border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0; flex-wrap:wrap; }
-    .view-btns { display:flex; border:1px solid var(--border); overflow:hidden; }
-    .view-btn { padding:7px 14px; font-size:12px; font-weight:600; cursor:pointer; background:white; border:none; border-right:1px solid var(--border); color:var(--muted); transition:all .15s; }
-    .view-btn:last-child { border-right:none; }
-    .view-btn.active { background:var(--teal); color:white; }
-    .nav-btns { display:flex; gap:4px; }
-    .nav-btn { padding:6px 12px; background:white; border:1px solid var(--border); cursor:pointer; font-size:13px; font-weight:600; color:var(--text); }
-    .nav-btn:hover { background:var(--bg); }
-    .period-label { font-size:13px; font-weight:700; color:var(--text); min-width:160px; }
-    .agenda-content { flex:1; overflow:auto; padding:20px 22px; }
-    .maand-grid { display:grid; grid-template-columns:repeat(7,1fr); border-top:1px solid var(--border); border-left:1px solid var(--border); }
-    .maand-dag-header { padding:8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); text-align:center; border-right:1px solid var(--border); border-bottom:1px solid var(--border); background:var(--bg); }
-    .maand-dag { min-height:100px; padding:6px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); background:white; }
-    .maand-dag.andere-maand { background:#fafafa; }
-    .maand-dag.vandaag { background:#f0fdf8; }
-    .dag-nr { font-size:12px; font-weight:600; color:var(--muted); margin-bottom:4px; display:inline-block; width:22px; height:22px; text-align:center; line-height:22px; }
-    .maand-dag.vandaag .dag-nr { background:var(--teal); color:white; border-radius:50%; font-size:11px; }
-    .agenda-event { font-size:11px; padding:2px 5px; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border-left:2px solid; cursor:pointer; }
-    .event-taak { background:#f0fdf8; border-color:#00af70; color:#065f46; }
-    .event-bel { background:#fef3e2; border-color:#f59e0b; color:#92400e; }
-    .event-mail { background:#eff6ff; border-color:#3b82f6; color:#1e40af; }
-    .event-notitie { background:#faf5ff; border-color:#8b5cf6; color:#5b21b6; }
-    .event-meeting { background:#fff1f2; border-color:#ef4444; color:#991b1b; }
-    .meer-events { font-size:10px; color:var(--muted); padding:2px 5px; }
-    .week-wrap { overflow-x:auto; }
-    .week-grid { display:grid; grid-template-columns:56px repeat(7,1fr); min-width:600px; border-top:1px solid var(--border); border-left:1px solid var(--border); }
-    .week-col-header { padding:8px; font-size:11px; font-weight:700; text-align:center; border-right:1px solid var(--border); border-bottom:1px solid var(--border); background:var(--bg); }
-    .week-col-header.vandaag { background:#f0fdf8; color:var(--teal); }
-    .week-uur-label { font-size:10px; color:var(--muted); text-align:right; padding:2px 6px 0 0; border-right:1px solid var(--border); border-bottom:1px solid var(--border); height:44px; }
-    .week-cel { border-right:1px solid var(--border); border-bottom:1px solid var(--border); height:44px; position:relative; }
-    .week-cel.vandaag { background:#f0fdf8; }
-    .jaar-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
-    .mini-maand { border:1px solid var(--border); background:white; }
-    .mini-header { padding:8px 10px; font-size:12px; font-weight:700; color:var(--dark); border-bottom:1px solid var(--border); background:var(--bg); }
-    .mini-grid { display:grid; grid-template-columns:repeat(7,1fr); padding:4px; gap:1px; }
-    .mini-dh { font-size:9px; font-weight:600; text-align:center; color:var(--muted); padding:3px 0; }
-    .mini-d { font-size:10px; text-align:center; padding:2px; color:var(--text); }
-    .mini-d.andere-maand { color:#ccc; }
-    .mini-d.vandaag { background:var(--teal); color:white; border-radius:50%; }
-    .mini-d.heeft-items { font-weight:700; color:var(--teal); }
+    .agenda-toolbar{display:flex;align-items:center;gap:10px;padding:12px 22px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;flex-wrap:wrap}
+    .view-btns{display:flex;border:1px solid var(--border)}
+    .view-btn{padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;background:white;border:none;border-right:1px solid var(--border);color:var(--muted)}
+    .view-btn:last-child{border-right:none}
+    .view-btn.active{background:var(--teal);color:white}
+    .nav-btns{display:flex;gap:4px}
+    .nav-btn{padding:6px 12px;background:white;border:1px solid var(--border);cursor:pointer;font-size:13px;font-weight:600;color:var(--text)}
+    .period-label{font-size:13px;font-weight:700;color:var(--text);min-width:160px}
+    .agenda-content{flex:1;overflow:auto;padding:20px 22px}
+    .maand-grid{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--border);border-left:1px solid var(--border)}
+    .maand-dag-header{padding:8px;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);text-align:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg)}
+    .maand-dag{min-height:100px;padding:6px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:white}
+    .maand-dag.andere-maand{background:#fafafa}
+    .maand-dag.vandaag{background:#f0fdf8}
+    .dag-nr{font-size:12px;font-weight:600;color:var(--muted);display:inline-block;width:22px;height:22px;text-align:center;line-height:22px;margin-bottom:4px}
+    .maand-dag.vandaag .dag-nr{background:var(--teal);color:white;border-radius:50%;font-size:11px}
+    .agenda-event{font-size:11px;padding:2px 5px;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:2px solid}
+    .event-taak{background:#f0fdf8;border-color:#00af70;color:#065f46}
+    .event-bel{background:#fef3e2;border-color:#f59e0b;color:#92400e}
+    .event-mail{background:#eff6ff;border-color:#3b82f6;color:#1e40af}
+    .event-notitie{background:#faf5ff;border-color:#8b5cf6;color:#5b21b6}
+    .event-meeting{background:#fff1f2;border-color:#ef4444;color:#991b1b}
+    .meer-events{font-size:10px;color:var(--muted);padding:2px 5px}
+    .week-wrap{overflow-x:auto}
+    .week-grid{display:grid;grid-template-columns:56px repeat(7,1fr);min-width:600px;border-top:1px solid var(--border);border-left:1px solid var(--border)}
+    .week-col-header{padding:8px;font-size:11px;font-weight:700;text-align:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg)}
+    .week-col-header.vandaag{background:#f0fdf8;color:var(--teal)}
+    .week-uur-label{font-size:10px;color:var(--muted);text-align:right;padding:2px 6px 0 0;border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:44px}
+    .week-cel{border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:44px;position:relative}
+    .week-cel.vandaag{background:#f0fdf8}
+    .jaar-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+    .mini-maand{border:1px solid var(--border);background:white}
+    .mini-header{padding:8px 10px;font-size:12px;font-weight:700;color:var(--dark);border-bottom:1px solid var(--border);background:var(--bg)}
+    .mini-grid{display:grid;grid-template-columns:repeat(7,1fr);padding:4px;gap:1px}
+    .mini-dh{font-size:9px;font-weight:600;text-align:center;color:var(--muted);padding:3px 0}
+    .mini-d{font-size:10px;text-align:center;padding:2px;color:var(--text)}
+    .mini-d.andere-maand{color:#ccc}
+    .mini-d.vandaag{background:var(--teal);color:white;border-radius:50%}
+    .mini-d.heeft-items{font-weight:700;color:var(--teal)}
   </style>
 </head>
 <body>
-<div class="app" id="app">
-  <div id="shell-placeholder"></div>
-  <div class="main">
-    <div class="topbar">
-      <span style="font-weight:700;font-size:15px">Agenda</span>
-    </div>
-    <div class="agenda-toolbar">
-      <div class="nav-btns">
-        <button class="nav-btn" id="btn-prev">&#8249;</button>
-        <button class="nav-btn" id="btn-today">Vandaag</button>
-        <button class="nav-btn" id="btn-next">&#8250;</button>
-      </div>
-      <div class="period-label" id="period-label">Laden...</div>
-      <div style="flex:1"></div>
-      <div class="view-btns">
-        <button class="view-btn" id="view-week">Week</button>
-        <button class="view-btn active" id="view-maand">Maand</button>
-        <button class="view-btn" id="view-jaar">Jaar</button>
-      </div>
-    </div>
-    <div class="agenda-content" id="agenda-content">
-      <div style="text-align:center;padding:60px;color:var(--muted)">Laden...</div>
-    </div>
-  </div>
-</div>
 <script type="module">
 import { supabase, requireAuth } from '../js/supabase.js'
 import { initShell } from '../js/shell.js'
 
 const session = await requireAuth()
 if (!session) throw new Error('Not authenticated')
+
+await initShell('agenda')
+
+// Bouw de pagina op in #main-content na initShell
+const main = document.getElementById('main-content')
+main.innerHTML = `
+  <div class="topbar"><span style="font-weight:700;font-size:15px">Agenda</span></div>
+  <div class="agenda-toolbar">
+    <div class="nav-btns">
+      <button class="nav-btn" id="btn-prev">&#8249;</button>
+      <button class="nav-btn" id="btn-today">Vandaag</button>
+      <button class="nav-btn" id="btn-next">&#8250;</button>
+    </div>
+    <div class="period-label" id="period-label">Laden...</div>
+    <div style="flex:1"></div>
+    <div class="view-btns">
+      <button class="view-btn" id="view-week">Week</button>
+      <button class="view-btn active" id="view-maand">Maand</button>
+      <button class="view-btn" id="view-jaar">Jaar</button>
+    </div>
+  </div>
+  <div class="agenda-content" id="agenda-content"><div style="text-align:center;padding:60px;color:var(--muted)">Laden...</div></div>
+`
 
 const DAGEN = ['Ma','Di','Wo','Do','Vr','Za','Zo']
 const MAANDEN = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December']
@@ -93,22 +90,29 @@ async function laadEvents() {
   if (act) act.forEach(a => { if (a.occurred_at) events.push({ datum: new Date(a.occurred_at), label: a.subject || a.type, type: a.type, klasse: 'event-' + (a.type||'notitie') }) })
 }
 
-function evOp(d) { return events.filter(e => { const ed=e.datum; return ed.getFullYear()===d.getFullYear()&&ed.getMonth()===d.getMonth()&&ed.getDate()===d.getDate() }) }
+function evOp(d) {
+  return events.filter(e => {
+    const ed = e.datum
+    return ed.getFullYear()===d.getFullYear() && ed.getMonth()===d.getMonth() && ed.getDate()===d.getDate()
+  })
+}
+
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 function renderMaand() {
   const jaar=cursor.getFullYear(), maand=cursor.getMonth()
   document.getElementById('period-label').textContent = MAANDEN[maand] + ' ' + jaar
   let start = new Date(jaar,maand,1).getDay()-1; if(start<0) start=6
   const days = new Date(jaar,maand+1,0).getDate()
-  const vd = new Date(); const vorigeDagen = new Date(jaar,maand,0).getDate()
+  const vd = new Date(), vorigeDagen = new Date(jaar,maand,0).getDate()
   let h = '<div class="maand-grid">'
   DAGEN.forEach(d => h += '<div class="maand-dag-header">'+d+'</div>')
-  for(let i=start-1;i>=0;i--) h += '<div class="maand-dag andere-maand"><span class="dag-nr">'+( vorigeDagen-i)+'</span></div>'
+  for(let i=start-1;i>=0;i--) h += '<div class="maand-dag andere-maand"><span class="dag-nr">'+(vorigeDagen-i)+'</span></div>'
   for(let dag=1;dag<=days;dag++){
     const d=new Date(jaar,maand,dag), ev=evOp(d), isVd=d.toDateString()===vd.toDateString()
-    let evH=ev.slice(0,3).map(e=>'<div class="agenda-event '+e.klasse+'" title="'+e.label+'">'+( e.afgevinkt?'&#x2713; ':'' )+e.label+'</div>').join('')
+    let evH=ev.slice(0,3).map(e=>'<div class="agenda-event '+e.klasse+'" title="'+esc(e.label)+'">'+(e.afgevinkt?'&#x2713; ':'')+esc(e.label)+'</div>').join('')
     if(ev.length>3) evH+='<div class="meer-events">+'+(ev.length-3)+' meer</div>'
-    h+='<div class="'+( isVd?'maand-dag vandaag':'maand-dag')+'"><span class="dag-nr">'+dag+'</span>'+evH+'</div>'
+    h+='<div class="'+(isVd?'maand-dag vandaag':'maand-dag')+'"><span class="dag-nr">'+dag+'</span>'+evH+'</div>'
   }
   const tot=Math.ceil((start+days)/7)*7
   for(let i=1;i<=tot-start-days;i++) h+='<div class="maand-dag andere-maand"><span class="dag-nr">'+i+'</span></div>'
@@ -121,14 +125,14 @@ function renderWeek() {
   const vd=new Date(), wk=Array.from({length:7},(_,i)=>{const w=new Date(d);w.setDate(d.getDate()+i);return w})
   document.getElementById('period-label').textContent=wk[0].getDate()+' '+MAANDEN[wk[0].getMonth()].slice(0,3)+' – '+wk[6].getDate()+' '+MAANDEN[wk[6].getMonth()].slice(0,3)+' '+wk[6].getFullYear()
   let h='<div class="week-wrap"><div class="week-grid"><div class="week-col-header"></div>'
-  wk.forEach(w => h+='<div class="week-col-header'+(w.toDateString()===vd.toDateString()?'vandaag':'')+'">'+DAGEN[w.getDay()===0?6:w.getDay()-1]+' '+w.getDate()+'</div>')
+  wk.forEach(w => h+='<div class="week-col-header'+(w.toDateString()===vd.toDateString()?' vandaag':'')+'">'+DAGEN[w.getDay()===0?6:w.getDay()-1]+' '+w.getDate()+'</div>')
   for(let uur=7;uur<=20;uur++){
     h+='<div class="week-uur-label">'+uur+':00</div>'
     wk.forEach(w=>{
-      const isVd=w.toDateString()===vd.toDateString()
       const ev=evOp(w).filter(e=>e.datum.getHours()===uur)
-      const evH=ev.map(e=>'<div class="agenda-event '+e.klasse+'" style="position:absolute;left:2px;right:2px;top:2px;font-size:10px">'+e.label+'</div>').join('')
-      h+='<div class="week-cel'+(isVd?' vandaag':'')+'">'+evH+'</div>'
+      h+='<div class="week-cel'+(w.toDateString()===vd.toDateString()?' vandaag':'')+'">'
+        +ev.map(e=>'<div class="agenda-event '+e.klasse+'" style="position:absolute;left:2px;right:2px;top:2px;font-size:10px">'+esc(e.label)+'</div>').join('')
+        +'</div>'
     })
   }
   h+='</div></div>'
@@ -146,7 +150,7 @@ function renderJaar() {
     for(let i=0;i<s;i++) h+='<div class="mini-d andere-maand"></div>'
     for(let dag=1;dag<=days;dag++){
       const d=new Date(jaar,m,dag), isVd=d.toDateString()===vd.toDateString(), heeft=evOp(d).length>0
-      h+='<div class="mini-d'+(isVd?' vandaag':heeft?' heeft-items':'')+'">'+dag+'</div>'
+      h+='<div class="mini-d'+(isVd?' vandaag':heeft?' heeft-items':'')+'">'+ dag+'</div>'
     }
     h+='</div></div>'
   }
@@ -156,24 +160,13 @@ function renderJaar() {
 
 function render(){ if(view==='maand') renderMaand(); else if(view==='week') renderWeek(); else renderJaar() }
 
-document.getElementById('btn-prev').addEventListener('click',()=>{
-  if(view==='maand') cursor.setMonth(cursor.getMonth()-1)
-  else if(view==='week') cursor.setDate(cursor.getDate()-7)
-  else cursor.setFullYear(cursor.getFullYear()-1)
-  render()
-})
-document.getElementById('btn-next').addEventListener('click',()=>{
-  if(view==='maand') cursor.setMonth(cursor.getMonth()+1)
-  else if(view==='week') cursor.setDate(cursor.getDate()+7)
-  else cursor.setFullYear(cursor.getFullYear()+1)
-  render()
-})
+document.getElementById('btn-prev').addEventListener('click',()=>{ if(view==='maand') cursor.setMonth(cursor.getMonth()-1); else if(view==='week') cursor.setDate(cursor.getDate()-7); else cursor.setFullYear(cursor.getFullYear()-1); render() })
+document.getElementById('btn-next').addEventListener('click',()=>{ if(view==='maand') cursor.setMonth(cursor.getMonth()+1); else if(view==='week') cursor.setDate(cursor.getDate()+7); else cursor.setFullYear(cursor.getFullYear()+1); render() })
 document.getElementById('btn-today').addEventListener('click',()=>{ cursor=new Date(); render() })
 document.getElementById('view-maand').addEventListener('click',()=>{ view='maand'; document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active')); document.getElementById('view-maand').classList.add('active'); render() })
 document.getElementById('view-week').addEventListener('click',()=>{ view='week'; document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active')); document.getElementById('view-week').classList.add('active'); render() })
 document.getElementById('view-jaar').addEventListener('click',()=>{ view='jaar'; document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active')); document.getElementById('view-jaar').classList.add('active'); render() })
 
-await initShell('agenda')
 await laadEvents()
 render()
 </script>
