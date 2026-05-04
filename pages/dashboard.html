@@ -409,11 +409,20 @@ function novaInitWizard(bedrijven) {
     return rec
   }
 
+  let novaRelatieRec = null
   document.getElementById('nova-relatie-mic')?.addEventListener('click',function(){
     const btn=document.getElementById('nova-relatie-mic')
-    btn.textContent='⏹ Stop...'
+    if(novaRelatieRec) {
+      novaRelatieRec.stop()
+      novaRelatieRec = null
+      btn.innerHTML='<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Spreek in'
+      btn.style.borderColor='var(--teal-m)';btn.style.background='var(--teal-l)';btn.style.color='var(--teal-d)'
+      return
+    }
+    btn.textContent='⏹ Stop'
     btn.style.borderColor='#ef4444';btn.style.background='#fee2e2';btn.style.color='#ef4444'
-    micSpreek(function(tekst){
+    novaRelatieRec = micSpreek(function(tekst){
+      novaRelatieRec = null
       btn.innerHTML='<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Spreek in'
       btn.style.borderColor='var(--teal-m)';btn.style.background='var(--teal-l)';btn.style.color='var(--teal-d)'
       if(relatieInput){relatieInput.value=tekst;relatieInput.dispatchEvent(new Event('input'))}
@@ -427,14 +436,27 @@ function novaInitWizard(bedrijven) {
     toonStap(3)
   })
 
+  let novaActieRec = null
   document.getElementById('nova-actie-mic')?.addEventListener('click',function(){
     const btn=document.getElementById('nova-actie-mic')
     const status=document.getElementById('nova-actie-status')
     const preview=document.getElementById('nova-actie-preview')
-    btn.textContent='⏹ Stop...'
+
+    // Stop als al bezig
+    if(novaActieRec) {
+      novaActieRec.stop()
+      novaActieRec = null
+      btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Spreek in'
+      btn.style.borderColor='var(--teal-m)';btn.style.background='var(--teal-l)';btn.style.color='var(--teal-d)'
+      if(status) status.textContent=''
+      return
+    }
+
+    btn.textContent='⏹ Stop'
     btn.style.borderColor='#ef4444';btn.style.background='#fee2e2';btn.style.color='#ef4444'
     if(status) status.textContent='Luistert...'
-    micSpreek(async function(tekst){
+    novaActieRec = micSpreek(async function(tekst){
+      novaActieRec = null
       btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Spreek in'
       btn.style.borderColor='var(--teal-m)';btn.style.background='var(--teal-l)';btn.style.color='var(--teal-d)'
       if(status) status.textContent='"'+tekst+'"'
