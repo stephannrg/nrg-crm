@@ -87,12 +87,12 @@
 </div>
 <script type="module">
 import { supabase, requireAuth } from '../js/supabase.js'
-import { renderShell } from '../js/shell.js'
+import { initShell } from '../js/shell.js'
 
 const session = await requireAuth()
 if (!session) throw new Error('Not authenticated')
 
-renderShell('agenda', session)
+await initShell('agenda')
 
 const DAGEN = ['Ma','Di','Wo','Do','Vr','Za','Zo']
 const MAANDEN = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December']
