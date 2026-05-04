@@ -47,7 +47,7 @@ input, textarea, select { font-family: var(--font); font-size: 14px; }
 /* ── Sidebar ── */
 .sidebar { width: var(--sidebar-w); background: white; border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
 .sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px 14px; border-bottom: 1px solid var(--border); }
-.sidebar-logo { height: 28px; width: auto; filter: none; flex-shrink: 0; }
+.sidebar-logo { height: 36px; width: auto; filter: none; flex-shrink: 0; }
 .sidebar-crm { font-size: 12px; font-weight: 400; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; }
 .sidebar-nav { padding: 10px 0; flex: 1; }
 .nav-section { padding: 14px 16px 3px; font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
