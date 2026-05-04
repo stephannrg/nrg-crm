@@ -47,11 +47,11 @@ exports.handler = async (event) => {
   }
 
   // Activiteiten — gefilterd op gebruiker tenzij team feed
-  let actFilter = 'order=occurred_at.desc&limit=500&select=id,type,subject,body,occurred_at,companies(name),profiles(full_name)'
+  let actFilter = 'order=occurred_at.desc&limit=500&select=id,type,subject,body,occurred_at,companies(name)'
   if (userId && !team) actFilter += `&logged_by=eq.${userId}`
 
   // Taken — gefilterd op gebruiker tenzij team feed
-  let taskFilter = 'status=eq.open&due_date=not.is.null&order=due_date.asc&limit=200&select=id,title,due_date,companies(name),profiles!tasks_assigned_to_fkey(full_name)'
+  let taskFilter = 'status=eq.open&due_date=not.is.null&order=due_date.asc&limit=200&select=id,title,due_date,companies(name)'
   if (userId && !team) taskFilter += `&assigned_to=eq.${userId}`
 
   const [activities, tasks] = await Promise.all([
@@ -76,7 +76,7 @@ exports.handler = async (event) => {
     const summary = escIcal(`${typeLabel}: ${a.subject || '(geen onderwerp)'} — ${a.companies?.name || ''}`)
     const desc = escIcal([
       a.companies?.name ? `Bedrijf: ${a.companies.name}` : '',
-      a.profiles?.full_name ? `Gelogd door: ${a.profiles.full_name}` : '',
+      
       a.body || ''
     ].filter(Boolean).join('\\n'))
     lines.push('BEGIN:VEVENT')
@@ -94,7 +94,7 @@ exports.handler = async (event) => {
     const summary = escIcal(`📌 ${t.title} — ${t.companies?.name || ''}`)
     const desc = escIcal([
       t.companies?.name ? `Bedrijf: ${t.companies.name}` : '',
-      t.profiles?.full_name ? `Toegewezen aan: ${t.profiles.full_name}` : ''
+      
     ].filter(Boolean).join('\\n'))
     lines.push('BEGIN:VEVENT')
     lines.push(foldLine(`UID:task-${t.id}@nrgcrm`))
