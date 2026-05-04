@@ -83,8 +83,9 @@ const MAANDEN = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augus
 let view = 'maand', cursor = new Date(), events = []
 
 async function laadEvents() {
-  const { data: taken } = await supabase.from('tasks').select('id,title,due_date,status').not('due_date','is',null)
-  const { data: act } = await supabase.from('activities').select('id,type,subject,occurred_at').order('occurred_at',{ascending:false}).limit(300)
+  const uid = session.user.id
+  const { data: taken } = await supabase.from('tasks').select('id,title,due_date,status').not('due_date','is',null).eq('assigned_to', uid)
+  const { data: act } = await supabase.from('activities').select('id,type,subject,occurred_at').eq('logged_by', uid).order('occurred_at',{ascending:false}).limit(300)
   events = []
   if (taken) taken.forEach(t => events.push({ datum: new Date(t.due_date), label: t.title, type: 'taak', klasse: 'event-taak', afgevinkt: t.status === 'gedaan' }))
   if (act) act.forEach(a => { if (a.occurred_at) events.push({ datum: new Date(a.occurred_at), label: a.subject || a.type, type: a.type, klasse: 'event-' + (a.type||'notitie') }) })
