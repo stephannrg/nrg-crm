@@ -51,7 +51,6 @@ export async function initShell(activeNav) {
       <aside class="sidebar">
         <div class="sidebar-brand">
           <img src="/img/logo.png" alt="nrg" class="sidebar-logo"/>
-          <span class="sidebar-crm">CRM</span>
         </div>
         <nav class="sidebar-nav">
           <div class="nav-section">Menu</div>
