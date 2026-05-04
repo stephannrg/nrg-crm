@@ -94,6 +94,44 @@ if (!session) throw new Error('Not authenticated')
 
 await initShell('agenda')
 
+// Event listeners na shell render
+document.getElementById('view-maand').addEventListener('click', () => {
+  view = 'maand'
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'))
+  document.getElementById('view-maand').classList.add('active')
+  render()
+})
+document.getElementById('view-week').addEventListener('click', () => {
+  view = 'week'
+  cursor = new Date()
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'))
+  document.getElementById('view-week').classList.add('active')
+  render()
+})
+document.getElementById('view-jaar').addEventListener('click', () => {
+  view = 'jaar'
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'))
+  document.getElementById('view-jaar').classList.add('active')
+  render()
+})
+document.getElementById('btn-prev').addEventListener('click', () => {
+  if (view === 'maand') cursor.setMonth(cursor.getMonth() - 1)
+  else if (view === 'week') cursor.setDate(cursor.getDate() - 7)
+  else cursor.setFullYear(cursor.getFullYear() - 1)
+  render()
+})
+document.getElementById('btn-next').addEventListener('click', () => {
+  if (view === 'maand') cursor.setMonth(cursor.getMonth() + 1)
+  else if (view === 'week') cursor.setDate(cursor.getDate() + 7)
+  else cursor.setFullYear(cursor.getFullYear() + 1)
+  render()
+})
+document.getElementById('btn-today').addEventListener('click', () => {
+  cursor = new Date()
+  cursor.setDate(1)
+  render()
+})
+
 const DAGEN = ['Ma','Di','Wo','Do','Vr','Za','Zo']
 const MAANDEN = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December']
 
@@ -288,46 +326,6 @@ function render() {
   else if (view === 'week') renderWeek()
   else renderJaar()
 }
-
-// View knoppen
-document.getElementById('view-maand').addEventListener('click', () => {
-  view = 'maand'
-  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'))
-  document.getElementById('view-maand').classList.add('active')
-  render()
-})
-document.getElementById('view-week').addEventListener('click', () => {
-  view = 'week'
-  cursor = new Date()
-  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'))
-  document.getElementById('view-week').classList.add('active')
-  render()
-})
-document.getElementById('view-jaar').addEventListener('click', () => {
-  view = 'jaar'
-  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'))
-  document.getElementById('view-jaar').classList.add('active')
-  render()
-})
-
-// Navigatie
-document.getElementById('btn-prev').addEventListener('click', () => {
-  if (view === 'maand') cursor.setMonth(cursor.getMonth() - 1)
-  else if (view === 'week') cursor.setDate(cursor.getDate() - 7)
-  else cursor.setFullYear(cursor.getFullYear() - 1)
-  render()
-})
-document.getElementById('btn-next').addEventListener('click', () => {
-  if (view === 'maand') cursor.setMonth(cursor.getMonth() + 1)
-  else if (view === 'week') cursor.setDate(cursor.getDate() + 7)
-  else cursor.setFullYear(cursor.getFullYear() + 1)
-  render()
-})
-document.getElementById('btn-today').addEventListener('click', () => {
-  cursor = new Date()
-  cursor.setDate(1)
-  render()
-})
 
 // Laden
 await laadEvents()
