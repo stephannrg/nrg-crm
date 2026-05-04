@@ -88,14 +88,7 @@ main.innerHTML = `
             <button class="btn btn-sm btn-secondary" id="copy-my-url">Kopieer</button>
           </div>
         </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:600">Team feed (alle activiteiten)</div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <div style="flex:1;background:var(--bg);border-radius:8px;padding:9px 12px;font-family:monospace;font-size:11px;word-break:break-all;color:var(--teal-m);border:1px solid var(--border)"
-              id="team-ical-url">Laden...</div>
-            <button class="btn btn-sm btn-secondary" id="copy-team-url">Kopieer</button>
-          </div>
-        </div>
+
       </div>
     </div>
   </div>
@@ -301,7 +294,6 @@ const { data: { session } } = await supabase.auth.getSession()
 const uid = session?.user?.id
 const base = location.origin + '/.netlify/functions/calendar'
 document.getElementById('my-ical-url').textContent = base + '?user=' + uid
-document.getElementById('team-ical-url').textContent = base + '?team=1'
 
 function copyUrl(elId, btnId) {
   const url = document.getElementById(elId).textContent
