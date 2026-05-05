@@ -139,14 +139,18 @@ document.body.insertAdjacentHTML('beforeend', `
           <div class="bewerk-label">Omschrijving</div>
           <input class="bewerk-input" id="nieuw-naam" type="text" placeholder="Omschrijving..."/>
         </div>
-        <div style="display:flex;gap:10px">
-          <div style="flex:2">
-            <div class="bewerk-label">Datum</div>
-            <input class="bewerk-input" id="nieuw-datum" type="date"/>
-          </div>
-          <div style="flex:1" id="nieuw-tijd-wrap">
-            <div class="bewerk-label">Tijd</div>
+        <div>
+          <div class="bewerk-label">Datum</div>
+          <input class="bewerk-input" id="nieuw-datum" type="date"/>
+        </div>
+        <div style="display:flex;gap:10px" id="nieuw-tijd-wrap">
+          <div style="flex:1">
+            <div class="bewerk-label">Begintijd</div>
             <input class="bewerk-input" id="nieuw-tijd" type="time" value="09:00"/>
+          </div>
+          <div style="flex:1">
+            <div class="bewerk-label">Eindtijd</div>
+            <input class="bewerk-input" id="nieuw-tijd-eind" type="time" value="10:00"/>
           </div>
         </div>
         <div>
@@ -459,15 +463,19 @@ document.getElementById('nieuw-opslaan').addEventListener('click', async () => {
     error = result.error
   } else {
     const tijd = document.getElementById('nieuw-tijd').value || '09:00'
+    const tijdEind = document.getElementById('nieuw-tijd-eind').value || null
     const occurred_at = new Date(datum + 'T' + tijd + ':00').toISOString()
-    const result = await supabase.from('activities').insert({
+    const ended_at = tijdEind ? new Date(datum + 'T' + tijdEind + ':00').toISOString() : null
+    const insertData = {
       type,
       subject: naam,
       body: body || null,
       occurred_at,
       company_id,
       logged_by: session.user.id
-    })
+    }
+    if (ended_at) insertData.ended_at = ended_at
+    const result = await supabase.from('activities').insert(insertData)
     error = result.error
   }
 

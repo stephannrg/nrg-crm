@@ -47,7 +47,7 @@ exports.handler = async (event) => {
   }
 
   // Activiteiten — gefilterd op gebruiker tenzij team feed
-  let actFilter = 'order=occurred_at.desc&limit=500&select=id,type,subject,body,occurred_at,companies(name)'
+  let actFilter = 'order=occurred_at.desc&limit=500&select=id,type,subject,body,occurred_at,ended_at,company_id,companies(name)'
   if (userId && !team) actFilter += `&logged_by=eq.${userId}`
 
   // Taken — gefilterd op gebruiker tenzij team feed
@@ -81,8 +81,9 @@ exports.handler = async (event) => {
     ].filter(Boolean).join('\\n'))
     lines.push('BEGIN:VEVENT')
     lines.push(foldLine(`UID:activity-${a.id}@nrgcrm`))
+    const end = a.ended_at ? toIcalDate(new Date(a.ended_at)) : start
     lines.push(foldLine(`DTSTART:${start}`))
-    lines.push(foldLine(`DTEND:${start}`))
+    lines.push(foldLine(`DTEND:${end}`))
     lines.push(foldLine(`SUMMARY:${summary}`))
     if (desc) lines.push(foldLine(`DESCRIPTION:${desc}`))
     if (a.company_id) lines.push(foldLine(`URL:https://nrgsales.nl/pages/klant.html?id=${a.company_id}`))
