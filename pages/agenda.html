@@ -118,13 +118,21 @@ overlay.addEventListener('click', sluitPanel)
 const TYPE_LABELS = { taak: 'Taak', bel: 'Belnotitie', mail: 'E-mail', meeting: 'Meeting', notitie: 'Notitie' }
 const TYPE_KLEUREN = { taak: '#00af70', bel: '#f59e0b', mail: '#3b82f6', meeting: '#ef4444', notitie: '#8b5cf6' }
 
+let huidigItem = null
+
 function toonDetail(item) {
+  huidigItem = item
   const label = TYPE_LABELS[item.type] || item.type
   const kleur = TYPE_KLEUREN[item.type] || '#6b7280'
   const datum = item.datum.toLocaleDateString('nl-NL', {weekday:'long', year:'numeric', month:'long', day:'numeric'})
   const tijd = item.type !== 'taak' ? item.datum.toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'}) : null
 
   document.getElementById('detail-title').textContent = item.label || label
+
+  const bewerkBtn = item.type === 'taak'
+    ? '<button class="nav-btn" id="detail-bewerk" style="font-size:12px;padding:5px 12px">✏ Bewerken</button>'
+    : ''
+  
   document.getElementById('detail-body').innerHTML =
     '<div class="detail-row">' +
       '<div class="detail-label">Type</div>' +
@@ -135,8 +143,38 @@ function toonDetail(item) {
       '<div class="detail-value">' + datum + (tijd ? ' om ' + tijd : '') + '</div>' +
     '</div>' +
     (item.label ? '<div class="detail-row"><div class="detail-label">Omschrijving</div><div class="detail-value">' + esc(item.label) + '</div></div>' : '') +
-    (item.body ? '<div class="detail-row"><div class="detail-label">Inhoud</div><div class="detail-value" style="white-space:pre-wrap">' + esc(item.body) + '</div></div>' : '') +
-    (item.afgevinkt !== undefined ? '<div class="detail-row"><div class="detail-label">Status</div><div class="detail-value">' + (item.afgevinkt ? '✓ Afgerond' : '○ Open') + '</div></div>' : '')
+    (item.body ? '<div class="detail-row"><div class="detail-label">Inhoud</div><div class="detail-value" style="white-space:pre-wrap;max-height:200px;overflow-y:auto">' + esc(item.body) + '</div></div>' : '') +
+    (item.afgevinkt !== undefined ? '<div class="detail-row"><div class="detail-label">Status</div><div class="detail-value">' + (item.afgevinkt ? '✓ Afgerond' : '○ Open') + '</div></div>' : '') +
+    '<div style="display:flex;gap:8px;padding-top:16px;border-top:1px solid var(--border);margin-top:8px">' +
+      bewerkBtn +
+      '<button class="nav-btn" id="detail-delete" style="font-size:12px;padding:5px 12px;color:#ef4444;border-color:#ef4444">&#x1F5D1; Verwijderen</button>' +
+    '</div>'
+
+  document.getElementById('detail-delete').addEventListener('click', async () => {
+    if (!confirm('Weet je zeker dat je dit wilt verwijderen?')) return
+    const tabel = item.type === 'taak' ? 'tasks' : 'activities'
+    const { error } = await supabase.from(tabel).delete().eq('id', item.id)
+    if (error) { alert('Fout: ' + error.message); return }
+    events.splice(events.indexOf(item), 1)
+    sluitPanel()
+    render()
+  })
+
+  if (item.type === 'taak') {
+    document.getElementById('detail-bewerk').addEventListener('click', () => {
+      const nieuweTitel = prompt('Taaknaam:', item.label)
+      if (!nieuweTitel) return
+      const nieuweDatum = prompt('Datum (YYYY-MM-DD):', item.datum.toISOString().slice(0,10))
+      if (!nieuweDatum) return
+      supabase.from('tasks').update({ title: nieuweTitel, due_date: nieuweDatum }).eq('id', item.id).then(({ error }) => {
+        if (error) { alert('Fout: ' + error.message); return }
+        item.label = nieuweTitel
+        item.datum = new Date(nieuweDatum)
+        sluitPanel()
+        render()
+      })
+    })
+  }
 
   panel.classList.add('open')
   overlay.classList.add('open')
