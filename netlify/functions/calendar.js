@@ -85,6 +85,7 @@ exports.handler = async (event) => {
     lines.push(foldLine(`DTEND:${start}`))
     lines.push(foldLine(`SUMMARY:${summary}`))
     if (desc) lines.push(foldLine(`DESCRIPTION:${desc}`))
+    if (a.company_id) lines.push(foldLine(`URL:https://nrgsales.nl/pages/klant.html?id=${a.company_id}`))
     lines.push(`CATEGORIES:${typeLabel}`)
     lines.push('END:VEVENT')
   }
@@ -102,6 +103,7 @@ exports.handler = async (event) => {
     lines.push(foldLine(`DTEND;VALUE=DATE:${t.due_date.replace(/-/g, '')}`))
     lines.push(foldLine(`SUMMARY:${summary}`))
     if (desc) lines.push(foldLine(`DESCRIPTION:${desc}`))
+    if (t.company_id) lines.push(foldLine(`URL:https://nrgsales.nl/pages/klant.html?id=${t.company_id}`))
     lines.push('CATEGORIES:Taak')
     lines.push('STATUS:NEEDS-ACTION')
     lines.push('END:VEVENT')
