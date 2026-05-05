@@ -129,9 +129,7 @@ function toonDetail(item) {
 
   document.getElementById('detail-title').textContent = item.label || label
 
-  const bewerkBtn = item.type === 'taak'
-    ? '<button class="nav-btn" id="detail-bewerk" style="font-size:12px;padding:5px 12px">✏ Bewerken</button>'
-    : ''
+  const bewerkBtn = '<button class="nav-btn" id="detail-bewerk" style="font-size:12px;padding:5px 12px">&#x270F; Bewerken</button>'
   
   document.getElementById('detail-body').innerHTML =
     '<div class="detail-row">' +
@@ -160,21 +158,26 @@ function toonDetail(item) {
     render()
   })
 
-  if (item.type === 'taak') {
-    document.getElementById('detail-bewerk').addEventListener('click', () => {
+  document.getElementById('detail-bewerk').addEventListener('click', async () => {
+    if (item.type === 'taak') {
       const nieuweTitel = prompt('Taaknaam:', item.label)
       if (!nieuweTitel) return
       const nieuweDatum = prompt('Datum (YYYY-MM-DD):', item.datum.toISOString().slice(0,10))
       if (!nieuweDatum) return
-      supabase.from('tasks').update({ title: nieuweTitel, due_date: nieuweDatum }).eq('id', item.id).then(({ error }) => {
-        if (error) { alert('Fout: ' + error.message); return }
-        item.label = nieuweTitel
-        item.datum = new Date(nieuweDatum)
-        sluitPanel()
-        render()
-      })
-    })
-  }
+      const { error } = await supabase.from('tasks').update({ title: nieuweTitel, due_date: nieuweDatum }).eq('id', item.id)
+      if (error) { alert('Fout: ' + error.message); return }
+      item.label = nieuweTitel
+      item.datum = new Date(nieuweDatum)
+    } else {
+      const nieuweOmschrijving = prompt('Omschrijving:', item.label)
+      if (!nieuweOmschrijving) return
+      const { error } = await supabase.from('activities').update({ subject: nieuweOmschrijving }).eq('id', item.id)
+      if (error) { alert('Fout: ' + error.message); return }
+      item.label = nieuweOmschrijving
+    }
+    sluitPanel()
+    render()
+  })
 
   panel.classList.add('open')
   overlay.classList.add('open')
