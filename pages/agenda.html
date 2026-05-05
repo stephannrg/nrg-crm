@@ -313,6 +313,9 @@ async function laadEvents() {
   events = []
   if (taken) taken.forEach(t => events.push({ id: t.id, datum: new Date(t.due_date), label: t.title, type: 'taak', klasse: 'event-taak', afgevinkt: t.status === 'gedaan', company_id: t.company_id }))
   if (act) act.forEach(a => { if (a.occurred_at) events.push({ id: a.id, datum: new Date(a.occurred_at), label: a.subject || a.type, type: a.type, klasse: 'event-' + (a.type||'notitie'), body: a.body, company_id: a.company_id }) })
+  // Sorteer events op datum/tijd
+  events.sort((a, b) => a.datum - b.datum)
+
   // Haal bedrijfsnamen op voor events met company_id
   const companyIds = [...new Set(events.filter(e => e.company_id).map(e => e.company_id))]
   if (companyIds.length) {
