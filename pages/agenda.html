@@ -80,7 +80,9 @@ import { initShell } from '../js/shell.js'
 
 const session = await requireAuth()
 if (!session) throw new Error('Not authenticated')
-const currentUid = session.user.id
+
+// UID direct vastleggen — wordt gebruikt in alle inserts en queries
+const MY_UID = session.user.id
 
 await initShell('agenda')
 
@@ -306,9 +308,8 @@ const MAANDEN = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augus
 let view = 'maand', cursor = new Date(), events = []
 
 async function laadEvents() {
-  const uid = session.user.id
-  const { data: taken } = await supabase.from('tasks').select('id,title,due_date,status,company_id').not('due_date','is',null).eq('assigned_to', uid)
-  const { data: act } = await supabase.from('activities').select('id,type,subject,body,occurred_at,company_id').eq('logged_by', uid).order('occurred_at',{ascending:false}).limit(300)
+  const { data: taken } = await supabase.from('tasks').select('id,title,due_date,status,company_id').not('due_date','is',null).eq('assigned_to', MY_UID)
+  const { data: act } = await supabase.from('activities').select('id,type,subject,body,occurred_at,company_id').eq('logged_by', MY_UID).order('occurred_at',{ascending:false}).limit(300)
   events = []
   if (taken) taken.forEach(t => events.push({ id: t.id, datum: new Date(t.due_date), label: t.title, type: 'taak', klasse: 'event-taak', afgevinkt: t.status === 'gedaan', company_id: t.company_id }))
   if (act) act.forEach(a => { if (a.occurred_at) events.push({ id: a.id, datum: new Date(a.occurred_at), label: a.subject || a.type, type: a.type, klasse: 'event-' + (a.type||'notitie'), body: a.body, company_id: a.company_id }) })
@@ -458,7 +459,7 @@ document.getElementById('nieuw-opslaan').addEventListener('click', async () => {
       title: naam,
       due_date: datum,
       company_id,
-      assigned_to: currentUid,
+      assigned_to: MY_UID,
       status: 'open'
     })
     error = result.error
@@ -473,7 +474,7 @@ document.getElementById('nieuw-opslaan').addEventListener('click', async () => {
       body: body || null,
       occurred_at,
       company_id,
-      logged_by: currentUid
+      logged_by: MY_UID
     }
     if (ended_at) insertData.ended_at = ended_at
     const result = await supabase.from('activities').insert(insertData)
