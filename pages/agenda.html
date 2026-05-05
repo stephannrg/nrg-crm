@@ -178,6 +178,7 @@ function toonDetail(item) {
     '</div>' +
     (item.label ? '<div class="detail-row"><div class="detail-label">Omschrijving</div><div class="detail-value">' + esc(item.label) + '</div></div>' : '') +
     (item.body ? '<div class="detail-row"><div class="detail-label">Inhoud</div><div class="detail-value" style="white-space:pre-wrap;max-height:200px;overflow-y:auto">' + esc(item.body) + '</div></div>' : '') +
+    (item.company_name ? '<div class="detail-row"><div class="detail-label">Bedrijf</div><div class="detail-value"><a href="/pages/klant.html?id=' + item.company_id + '" style="color:var(--teal-m);font-weight:600;text-decoration:none">' + esc(item.company_name) + ' →</a></div></div>' : '') +
     (item.afgevinkt !== undefined ? '<div class="detail-row"><div class="detail-label">Status</div><div class="detail-value">' + (item.afgevinkt ? '✓ Afgerond' : '○ Open') + '</div></div>' : '') +
     '<div style="display:flex;gap:8px;padding-top:16px;border-top:1px solid var(--border);margin-top:8px">' +
       bewerkBtn +
@@ -247,11 +248,21 @@ let view = 'maand', cursor = new Date(), events = []
 
 async function laadEvents() {
   const uid = session.user.id
-  const { data: taken } = await supabase.from('tasks').select('id,title,due_date,status').not('due_date','is',null).eq('assigned_to', uid)
-  const { data: act } = await supabase.from('activities').select('id,type,subject,body,occurred_at').eq('logged_by', uid).order('occurred_at',{ascending:false}).limit(300)
+  const { data: taken } = await supabase.from('tasks').select('id,title,due_date,status,company_id').not('due_date','is',null).eq('assigned_to', uid)
+  const { data: act } = await supabase.from('activities').select('id,type,subject,body,occurred_at,company_id').eq('logged_by', uid).order('occurred_at',{ascending:false}).limit(300)
   events = []
-  if (taken) taken.forEach(t => events.push({ id: t.id, datum: new Date(t.due_date), label: t.title, type: 'taak', klasse: 'event-taak', afgevinkt: t.status === 'gedaan' }))
-  if (act) act.forEach(a => { if (a.occurred_at) events.push({ id: a.id, datum: new Date(a.occurred_at), label: a.subject || a.type, type: a.type, klasse: 'event-' + (a.type||'notitie'), body: a.body }) })
+  if (taken) taken.forEach(t => events.push({ id: t.id, datum: new Date(t.due_date), label: t.title, type: 'taak', klasse: 'event-taak', afgevinkt: t.status === 'gedaan', company_id: t.company_id }))
+  if (act) act.forEach(a => { if (a.occurred_at) events.push({ id: a.id, datum: new Date(a.occurred_at), label: a.subject || a.type, type: a.type, klasse: 'event-' + (a.type||'notitie'), body: a.body, company_id: a.company_id }) })
+  // Haal bedrijfsnamen op voor events met company_id
+  const companyIds = [...new Set(events.filter(e => e.company_id).map(e => e.company_id))]
+  if (companyIds.length) {
+    const { data: companies } = await supabase.from('companies').select('id,name').in('id', companyIds)
+    if (companies) {
+      const map = {}
+      companies.forEach(c => map[c.id] = c.name)
+      events.forEach(e => { if (e.company_id && map[e.company_id]) e.company_name = map[e.company_id] })
+    }
+  }
 }
 
 function evOp(d) {
