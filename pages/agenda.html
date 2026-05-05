@@ -42,6 +42,16 @@
     .detail-value{font-size:13px;color:var(--text);line-height:1.5}
     .detail-badge{display:inline-flex;align-items:center;padding:3px 10px;font-size:11px;font-weight:600;border-left:3px solid}
     .detail-overlay{position:fixed;inset:0;z-index:199;background:rgba(0,0,0,.15);display:none}
+    .bewerk-modal{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3)}
+    .bewerk-modal.hidden{display:none}
+    .bewerk-box{background:white;width:440px;max-width:95vw;border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,.12)}
+    .bewerk-header{padding:14px 18px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700;color:var(--dark);display:flex;justify-content:space-between;align-items:center}
+    .bewerk-body{padding:18px;display:flex;flex-direction:column;gap:14px}
+    .bewerk-footer{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+    .bewerk-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px}
+    .bewerk-input{width:100%;padding:8px 10px;border:1px solid var(--border);font-size:13px;font-family:inherit;box-sizing:border-box}
+    .bewerk-input:focus{outline:none;border-color:var(--teal-m)}
+    textarea.bewerk-input{resize:vertical;min-height:80px}
     .detail-overlay.open{display:block}
     .week-wrap{overflow-x:auto}
     .week-grid{display:grid;grid-template-columns:56px repeat(7,1fr);min-width:600px;border-top:1px solid var(--border);border-left:1px solid var(--border)}
@@ -104,6 +114,32 @@ document.body.insertAdjacentHTML('beforeend', `
   </div>
 `)
 
+document.body.insertAdjacentHTML('beforeend', `
+  <div class="bewerk-modal hidden" id="bewerk-modal">
+    <div class="bewerk-box">
+      <div class="bewerk-header">
+        <span id="bewerk-modal-title">Bewerken</span>
+        <button class="detail-close" id="bewerk-sluit">&#x2715;</button>
+      </div>
+      <div class="bewerk-body">
+        <div>
+          <div class="bewerk-label">Omschrijving</div>
+          <input class="bewerk-input" id="bewerk-naam" type="text"/>
+        </div>
+        <div id="bewerk-body-extra"></div>
+        <div>
+          <div class="bewerk-label">Notities / inhoud</div>
+          <textarea class="bewerk-input" id="bewerk-body-tekst"></textarea>
+        </div>
+      </div>
+      <div class="bewerk-footer">
+        <button class="nav-btn" id="bewerk-annuleer">Annuleren</button>
+        <button class="btn btn-primary" id="bewerk-opslaan">Opslaan</button>
+      </div>
+    </div>
+  </div>
+`)
+
 const panel = document.getElementById('detail-panel')
 const overlay = document.getElementById('detail-overlay')
 
@@ -158,25 +194,47 @@ function toonDetail(item) {
     render()
   })
 
-  document.getElementById('detail-bewerk').addEventListener('click', async () => {
+  document.getElementById('detail-bewerk').addEventListener('click', () => {
+    const modal = document.getElementById('bewerk-modal')
+    document.getElementById('bewerk-modal-title').textContent = 'Bewerken: ' + (TYPE_LABELS[item.type] || item.type)
+    document.getElementById('bewerk-naam').value = item.label || ''
+    document.getElementById('bewerk-body-tekst').value = item.body || ''
+
+    // Datum veld alleen voor taken
+    const extra = document.getElementById('bewerk-body-extra')
     if (item.type === 'taak') {
-      const nieuweTitel = prompt('Taaknaam:', item.label)
-      if (!nieuweTitel) return
-      const nieuweDatum = prompt('Datum (YYYY-MM-DD):', item.datum.toISOString().slice(0,10))
-      if (!nieuweDatum) return
-      const { error } = await supabase.from('tasks').update({ title: nieuweTitel, due_date: nieuweDatum }).eq('id', item.id)
-      if (error) { alert('Fout: ' + error.message); return }
-      item.label = nieuweTitel
-      item.datum = new Date(nieuweDatum)
+      extra.innerHTML = '<div><div class="bewerk-label">Datum</div><input class="bewerk-input" id="bewerk-datum" type="date" value="' + item.datum.toISOString().slice(0,10) + '"/></div>'
     } else {
-      const nieuweOmschrijving = prompt('Omschrijving:', item.label)
-      if (!nieuweOmschrijving) return
-      const { error } = await supabase.from('activities').update({ subject: nieuweOmschrijving }).eq('id', item.id)
-      if (error) { alert('Fout: ' + error.message); return }
-      item.label = nieuweOmschrijving
+      extra.innerHTML = ''
     }
-    sluitPanel()
-    render()
+
+    modal.classList.remove('hidden')
+
+    const sluit = () => modal.classList.add('hidden')
+    document.getElementById('bewerk-sluit').onclick = sluit
+    document.getElementById('bewerk-annuleer').onclick = sluit
+
+    document.getElementById('bewerk-opslaan').onclick = async () => {
+      const nieuweNaam = document.getElementById('bewerk-naam').value.trim()
+      const nieuwBody = document.getElementById('bewerk-body-tekst').value.trim()
+      if (!nieuweNaam) return
+
+      if (item.type === 'taak') {
+        const nieuweDatum = document.getElementById('bewerk-datum').value
+        const { error } = await supabase.from('tasks').update({ title: nieuweNaam, due_date: nieuweDatum }).eq('id', item.id)
+        if (error) { alert('Fout: ' + error.message); return }
+        item.label = nieuweNaam
+        item.datum = new Date(nieuweDatum)
+      } else {
+        const { error } = await supabase.from('activities').update({ subject: nieuweNaam, body: nieuwBody }).eq('id', item.id)
+        if (error) { alert('Fout: ' + error.message); return }
+        item.label = nieuweNaam
+        item.body = nieuwBody
+      }
+      sluit()
+      sluitPanel()
+      render()
+    }
   })
 
   panel.classList.add('open')
@@ -192,8 +250,8 @@ async function laadEvents() {
   const { data: taken } = await supabase.from('tasks').select('id,title,due_date,status').not('due_date','is',null).eq('assigned_to', uid)
   const { data: act } = await supabase.from('activities').select('id,type,subject,body,occurred_at').eq('logged_by', uid).order('occurred_at',{ascending:false}).limit(300)
   events = []
-  if (taken) taken.forEach(t => events.push({ datum: new Date(t.due_date), label: t.title, type: 'taak', klasse: 'event-taak', afgevinkt: t.status === 'gedaan' }))
-  if (act) act.forEach(a => { if (a.occurred_at) events.push({ datum: new Date(a.occurred_at), label: a.subject || a.type, type: a.type, klasse: 'event-' + (a.type||'notitie'), body: a.body }) })
+  if (taken) taken.forEach(t => events.push({ id: t.id, datum: new Date(t.due_date), label: t.title, type: 'taak', klasse: 'event-taak', afgevinkt: t.status === 'gedaan' }))
+  if (act) act.forEach(a => { if (a.occurred_at) events.push({ id: a.id, datum: new Date(a.occurred_at), label: a.subject || a.type, type: a.type, klasse: 'event-' + (a.type||'notitie'), body: a.body }) })
 }
 
 function evOp(d) {
