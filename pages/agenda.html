@@ -80,6 +80,7 @@ import { initShell } from '../js/shell.js'
 
 const session = await requireAuth()
 if (!session) throw new Error('Not authenticated')
+const currentUid = session.user.id
 
 await initShell('agenda')
 
@@ -457,7 +458,7 @@ document.getElementById('nieuw-opslaan').addEventListener('click', async () => {
       title: naam,
       due_date: datum,
       company_id,
-      assigned_to: session.user.id,
+      assigned_to: currentUid,
       status: 'open'
     })
     error = result.error
@@ -472,7 +473,7 @@ document.getElementById('nieuw-opslaan').addEventListener('click', async () => {
       body: body || null,
       occurred_at,
       company_id,
-      logged_by: session.user.id
+      logged_by: currentUid
     }
     if (ended_at) insertData.ended_at = ended_at
     const result = await supabase.from('activities').insert(insertData)
