@@ -345,7 +345,10 @@ function renderMaand() {
   for(let i=start-1;i>=0;i--) h += '<div class="maand-dag andere-maand"><span class="dag-nr">'+(vorigeDagen-i)+'</span></div>'
   for(let dag=1;dag<=days;dag++){
     const d=new Date(jaar,maand,dag), ev=evOp(d), isVd=d.toDateString()===vd.toDateString()
-    let evH=ev.slice(0,3).map((e,i)=>'<div class="agenda-event '+e.klasse+'" data-idx="'+events.indexOf(e)+'" title="'+esc(e.label)+'">'+(e.afgevinkt?'&#x2713; ':'')+esc(e.label)+'</div>').join('')
+    let evH=ev.slice(0,3).map((e,i)=>{
+      const t = e.type !== 'taak' ? '<b style="margin-right:3px">' + e.datum.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}) + '</b>' : ''
+      return '<div class="agenda-event '+e.klasse+'" data-idx="'+events.indexOf(e)+'" title="'+esc(e.label)+'">'+(e.afgevinkt?'&#x2713; ':'')+t+esc(e.label)+'</div>'
+    }).join('')
     if(ev.length>3) evH+='<div class="meer-events">+'+(ev.length-3)+' meer</div>'
     h+='<div class="'+(isVd?'maand-dag vandaag':'maand-dag')+'"><span class="dag-nr">'+dag+'</span>'+evH+'</div>'
   }
