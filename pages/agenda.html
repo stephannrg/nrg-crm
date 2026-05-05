@@ -42,6 +42,8 @@
     .detail-value{font-size:13px;color:var(--text);line-height:1.5}
     .detail-badge{display:inline-flex;align-items:center;padding:3px 10px;font-size:11px;font-weight:600;border-left:3px solid}
     .detail-overlay{position:fixed;inset:0;z-index:199;background:rgba(0,0,0,.15);display:none}
+    .nieuw-modal{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3)}
+    .nieuw-modal.hidden{display:none}
     .bewerk-modal{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3)}
     .bewerk-modal.hidden{display:none}
     .bewerk-box{background:white;width:440px;max-width:95vw;border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,.12)}
@@ -93,6 +95,7 @@ main.innerHTML = `
     </div>
     <div class="period-label" id="period-label">Laden...</div>
     <div style="flex:1"></div>
+    <button class="btn btn-primary" id="btn-nieuw" style="font-size:12px;padding:7px 14px">+ Nieuw</button>
     <div class="view-btns">
       <button class="view-btn" id="view-week">Week</button>
       <button class="view-btn active" id="view-maand">Maand</button>
@@ -111,6 +114,51 @@ document.body.insertAdjacentHTML('beforeend', `
       <button class="detail-close" id="detail-close">&#x2715;</button>
     </div>
     <div class="detail-body" id="detail-body"></div>
+  </div>
+`)
+
+document.body.insertAdjacentHTML('beforeend', `
+  <div class="nieuw-modal hidden" id="nieuw-modal">
+    <div class="bewerk-box">
+      <div class="bewerk-header">
+        <span>Nieuwe actie / afspraak</span>
+        <button class="detail-close" id="nieuw-sluit">&#x2715;</button>
+      </div>
+      <div class="bewerk-body">
+        <div>
+          <div class="bewerk-label">Type</div>
+          <select class="bewerk-input" id="nieuw-type">
+            <option value="taak">Taak</option>
+            <option value="bel">Belnotitie</option>
+            <option value="meeting">Meeting</option>
+            <option value="notitie">Notitie</option>
+            <option value="mail">E-mail</option>
+          </select>
+        </div>
+        <div>
+          <div class="bewerk-label">Omschrijving</div>
+          <input class="bewerk-input" id="nieuw-naam" type="text" placeholder="Omschrijving..."/>
+        </div>
+        <div>
+          <div class="bewerk-label">Datum</div>
+          <input class="bewerk-input" id="nieuw-datum" type="date"/>
+        </div>
+        <div>
+          <div class="bewerk-label">Bedrijf (optioneel)</div>
+          <select class="bewerk-input" id="nieuw-bedrijf">
+            <option value="">— Geen bedrijf —</option>
+          </select>
+        </div>
+        <div>
+          <div class="bewerk-label">Notities / inhoud</div>
+          <textarea class="bewerk-input" id="nieuw-body" placeholder="Optionele inhoud..."></textarea>
+        </div>
+      </div>
+      <div class="bewerk-footer">
+        <button class="nav-btn" id="nieuw-annuleer">Annuleren</button>
+        <button class="btn btn-primary" id="nieuw-opslaan">Opslaan</button>
+      </div>
+    </div>
   </div>
 `)
 
@@ -349,6 +397,71 @@ document.getElementById('btn-today').addEventListener('click',()=>{ cursor=new D
 document.getElementById('view-maand').addEventListener('click',()=>{ view='maand'; document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active')); document.getElementById('view-maand').classList.add('active'); render() })
 document.getElementById('view-week').addEventListener('click',()=>{ view='week'; document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active')); document.getElementById('view-week').classList.add('active'); render() })
 document.getElementById('view-jaar').addEventListener('click',()=>{ view='jaar'; document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active')); document.getElementById('view-jaar').classList.add('active'); render() })
+
+// Nieuw modal
+let alleBedrijven = []
+supabase.from('companies').select('id,name').order('name').then(({ data }) => {
+  if (data) {
+    alleBedrijven = data
+    const sel = document.getElementById('nieuw-bedrijf')
+    if (sel) data.forEach(c => {
+      const opt = document.createElement('option')
+      opt.value = c.id
+      opt.textContent = c.name
+      sel.appendChild(opt)
+    })
+  }
+})
+
+document.getElementById('btn-nieuw').addEventListener('click', () => {
+  const modal = document.getElementById('nieuw-modal')
+  document.getElementById('nieuw-naam').value = ''
+  document.getElementById('nieuw-body').value = ''
+  document.getElementById('nieuw-datum').value = new Date().toISOString().slice(0,10)
+  modal.classList.remove('hidden')
+})
+
+const sluitNieuw = () => document.getElementById('nieuw-modal').classList.add('hidden')
+document.getElementById('nieuw-sluit').addEventListener('click', sluitNieuw)
+document.getElementById('nieuw-annuleer').addEventListener('click', sluitNieuw)
+
+document.getElementById('nieuw-opslaan').addEventListener('click', async () => {
+  const type = document.getElementById('nieuw-type').value
+  const naam = document.getElementById('nieuw-naam').value.trim()
+  const datum = document.getElementById('nieuw-datum').value
+  const body = document.getElementById('nieuw-body').value.trim()
+  const company_id = document.getElementById('nieuw-bedrijf').value || null
+
+  if (!naam) { alert('Vul een omschrijving in.'); return }
+  if (!datum) { alert('Vul een datum in.'); return }
+
+  let error
+  if (type === 'taak') {
+    const result = await supabase.from('tasks').insert({
+      title: naam,
+      due_date: datum,
+      company_id,
+      assigned_to: session.user.id,
+      status: 'open'
+    })
+    error = result.error
+  } else {
+    const result = await supabase.from('activities').insert({
+      type,
+      subject: naam,
+      body: body || null,
+      occurred_at: new Date(datum).toISOString(),
+      company_id,
+      logged_by: session.user.id
+    })
+    error = result.error
+  }
+
+  if (error) { alert('Fout: ' + error.message); return }
+  sluitNieuw()
+  await laadEvents()
+  render()
+})
 
 await laadEvents()
 render()
