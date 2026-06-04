@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Klanten — NRG CRM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css"/>
+  <script src="../js/config.js"></script>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#00af70">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NRG CRM">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+  <link rel="shortcut icon" href="/img/favicon.ico">
+</head>
+<body>
+<script type="module">
+import { initShell } from '../js/shell.js'
+import { supabase } from '../js/supabase.js'
+import { esc, formatDate, formatEuro, stageLabel, statusLabel } from '../js/utils.js'
+import { openNieuweActie } from './actie.js'
+
+const ctx = await initShell('klanten')
+if (!ctx) throw new Error()
+const uid = ctx.session.user.id
+
+const main = document.getElementById('main-content')
+main.innerHTML = `
+  <div class="topbar">
+    <h1>Klanten</h1>
+    <button class="btn btn-primary" id="add-btn">+ Nieuwe klant</button>
+  </div>
+  <div class="page-content">
+    <div class="filter-bar">
+      <div class="search-wrap">
+        <svg class="search-icon" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search" placeholder="Zoek op naam, stad..."/>
+      </div>
+      <select class="filter-select" id="status-filter">
+        <option value="">Alle statussen</option>
+        <option value="suspect">Suspect</option>
+        <option value="prospect">Prospect</option>
+        <option value="klant">Klant</option>
+        <option value="inactief">Inactief</option>
+      </select>
+      <select class="filter-select" id="tag-filter"><option value="">Alle labels</option></select>
+      <select class="filter-select" id="marketing-filter">
+        <option value="">Marketing: alle</option>
+        <option value="true">✓ Marketing</option>
+        <option value="false">Geen</option>
+      </select>
+      <span class="text-muted" style="font-size:12px;white-space:nowrap" id="count-label"></span>
+    </div>
+    <div id="grid-wrap"><div class="loading"><div class="spinner"></div> Laden...</div></div>
+  </div>
+`
+
+await openNieuweActie(main)
+document.getElementById('add-btn').addEventListener('click', () => document.getElementById('klant-modal')?.classList.add('open'))
+
+let companies = [], allTags = []
+
+async function load() {
+  const [{ data: c }, { data: t }, { data: users }] = await Promise.all([
+    supabase.from('companies').select(`
+      id, name, city, status, marketing_opt_in, owner_id, sector,
+      company_tags(tag_id, tags(id,name,type)),
+      contacts(id, first_name, last_name, job_title, phone, is_primary),
+      tasks(id,status),
+      deals(id,stage,value)
+    `).order('name'),
+    supabase.from('tags').select('*').order('name'),
+    supabase.from('profiles').select('id,full_name').order('full_name')
+  ])
+  companies = c || []; allTags = t || []
+  const tf = document.getElementById('tag-filter')
+  allTags.forEach(tag => { const o = document.createElement('option'); o.value = tag.id; o.textContent = tag.name; tf.appendChild(o) })
+  render()
+}
+
+function render() {
+  const q  = document.getElementById('search').value.toLowerCase()
+  const sf = document.getElementById('status-filter').value
+  const tf = document.getElementById('tag-filter').value
+  const mf = document.getElementById('marketing-filter').value
+
+  let list = companies.filter(c => {
+    if (q  && !c.name.toLowerCase().includes(q) && !(c.city||'').toLowerCase().includes(q)) return false
+    if (sf && c.status !== sf) return false
+    if (tf && !c.company_tags?.some(ct => ct.tag_id === tf)) return false
+    if (mf !== '' && String(c.marketing_opt_in) !== mf) return false
+    return true
+  }).sort((a, b) => a.name.localeCompare(b.name, 'nl'))
+
+  document.getElementById('count-label').textContent = list.length + ' bedrijven'
+  const wrap = document.getElementById('grid-wrap')
+  if (!list.length) { wrap.innerHTML = '<div class="empty-state"><p>Geen klanten gevonden.</p></div>'; return }
+
+  wrap.innerHTML = `<div class="company-grid">${list.map(c => {
+    const primary = c.contacts?.find(x => x.is_primary) || c.contacts?.[0]
+    const tags = (c.company_tags||[]).slice(0, 2).map(ct => `<span class="tag tag-${ct.tags?.type}">${esc(ct.tags?.name)}</span>`).join('')
+    const openTasks = (c.tasks||[]).filter(t => t.status === 'open').length
+    const deal = (c.deals||[]).find(d => !['gewonnen','verloren'].includes(d.stage))
+    const isOwn = c.owner_id === uid
+
+    return `
+    <div class="company-card status-${c.status||'suspect'}" onclick="location.href='/pages/klant.html?id=${c.id}'">
+      <div class="company-card-top">
+        <div class="company-card-icon">${c.name[0].toUpperCase()}</div>
+        <div style="flex:1;min-width:0">
+          <div class="company-card-name">${esc(c.name)}</div>
+          <div class="company-card-sub">${esc(c.city || c.sector || '')}</div>
+        </div>
+        ${isOwn ? '<div class="own-dot" title="Jouw klant"></div>' : ''}
+      </div>
+      <div class="company-card-footer">
+        <span class="status status-${c.status||'suspect'}">${statusLabel(c.status||'suspect')}</span>
+        <div style="display:flex;gap:3px;flex-wrap:wrap">${tags}</div>
+      </div>
+      ${primary ? `
+      <div class="company-card-divider"></div>
+      <div>
+        <div class="company-card-contact-name">${esc(primary.first_name)} ${esc(primary.last_name)}</div>
+        ${primary.job_title ? `<div class="company-card-contact-role">${esc(primary.job_title)}</div>` : ''}
+        ${primary.phone ? `
+        <div class="company-card-phone" onclick="event.stopPropagation();location.href='tel:${esc(primary.phone)}'">
+          <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 11.27 18 19.5 19.5 0 0 1 5 11.74 19.79 19.79 0 0 1 2.12 2.18 2 2 0 0 1 4.11 0h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 7.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          ${esc(primary.phone)}
+        </div>` : ''}
+      </div>` : ''}
+      ${(deal || openTasks > 0) ? `
+      <div class="company-card-divider"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:11.5px">
+        ${deal ? `<span class="stage stage-${deal.stage}">${stageLabel(deal.stage)}</span>` : '<span></span>'}
+        ${openTasks ? `<span style="color:var(--danger);font-weight:600">📌 ${openTasks}</span>` : ''}
+      </div>` : ''}
+    </div>`
+  }).join('')}</div>`
+}
+
+document.getElementById('search').addEventListener('input', render)
+document.getElementById('status-filter').addEventListener('change', render)
+document.getElementById('tag-filter').addEventListener('change', render)
+document.getElementById('marketing-filter').addEventListener('change', render)
+await load()
+</script>
+</body>
+</html>

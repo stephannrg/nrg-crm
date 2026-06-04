@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40" height="32">
+  <!-- NRG tekst in donker teal -->
+  <text x="0" y="30" font-family="DM Sans, Arial, sans-serif" font-size="28" font-weight="800" fill="#004d59" letter-spacing="-1">nrg</text>
+  <!-- Registered trademark -->
+  <text x="88" y="14" font-family="DM Sans, Arial, sans-serif" font-size="10" font-weight="400" fill="#007d8c">®</text>
+</svg>
