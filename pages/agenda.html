@@ -84,7 +84,8 @@ if (!session) throw new Error('Not authenticated')
 // UID direct vastleggen — wordt gebruikt in alle inserts en queries
 const MY_UID = session.user.id
 
-await initShell('agenda')
+const shellCtx = await initShell('agenda')
+const isAdmin = shellCtx?.profile?.role === 'admin'
 
 // Bouw de pagina op in #main-content na initShell
 const main = document.getElementById('main-content')
@@ -240,12 +241,17 @@ function toonDetail(item) {
     (item.label ? '<div class="detail-row"><div class="detail-label">Omschrijving</div><div class="detail-value">' + esc(item.label) + '</div></div>' : '') +
     (item.body ? '<div class="detail-row"><div class="detail-label">Inhoud</div><div class="detail-value" style="white-space:pre-wrap;max-height:200px;overflow-y:auto">' + esc(item.body) + '</div></div>' : '') +
     (item.company_name ? '<div class="detail-row"><div class="detail-label">Bedrijf</div><div class="detail-value"><a href="/pages/klant.html?id=' + item.company_id + '" style="color:var(--teal-m);font-weight:600;text-decoration:none">' + esc(item.company_name) + ' →</a></div></div>' : '') +
+    (item.owner_name ? '<div class="detail-row"><div class="detail-label">Van</div><div class="detail-value">' + esc(item.owner_name) + (item.mine ? ' (jij)' : '') + '</div></div>' : '') +
     (item.afgevinkt !== undefined ? '<div class="detail-row"><div class="detail-label">Status</div><div class="detail-value">' + (item.afgevinkt ? '✓ Afgerond' : '○ Open') + '</div></div>' : '') +
+    (item.mine !== false ?
     '<div style="display:flex;gap:8px;padding-top:16px;border-top:1px solid var(--border);margin-top:8px">' +
       bewerkBtn +
       '<button class="nav-btn" id="detail-delete" style="font-size:12px;padding:5px 12px;color:#ef4444;border-color:#ef4444">&#x1F5D1; Verwijderen</button>' +
     '</div>'
+    :
+    '<div style="padding-top:16px;border-top:1px solid var(--border);margin-top:8px;font-size:12px;color:var(--muted)">Alleen ' + esc(item.owner_name || 'de eigenaar') + ' kan dit item bewerken of verwijderen.</div>')
 
+  if (item.mine !== false) {
   document.getElementById('detail-delete').addEventListener('click', async () => {
     if (!confirm('Weet je zeker dat je dit wilt verwijderen?')) return
     const tabel = item.type === 'taak' ? 'tasks' : 'activities'
@@ -298,6 +304,7 @@ function toonDetail(item) {
       render()
     }
   })
+  }
 
   panel.classList.add('open')
   overlay.classList.add('open')
@@ -308,11 +315,16 @@ const MAANDEN = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augus
 let view = 'maand', cursor = new Date(), events = []
 
 async function laadEvents() {
-  const { data: taken } = await supabase.from('tasks').select('id,title,due_date,status,company_id').not('due_date','is',null).eq('assigned_to', MY_UID)
-  const { data: act } = await supabase.from('activities').select('id,type,subject,body,occurred_at,company_id').eq('logged_by', MY_UID).order('occurred_at',{ascending:false}).limit(300)
+  // Admin ziet alles, gewone gebruiker alleen eigen items
+  let takenQ = supabase.from('tasks').select('id,title,due_date,status,company_id,assigned_to').not('due_date','is',null)
+  if (!isAdmin) takenQ = takenQ.eq('assigned_to', MY_UID)
+  const { data: taken } = await takenQ
+  let actQ = supabase.from('activities').select('id,type,subject,body,occurred_at,company_id,logged_by').order('occurred_at',{ascending:false}).limit(1000)
+  if (!isAdmin) actQ = actQ.eq('logged_by', MY_UID)
+  const { data: act } = await actQ
   events = []
-  if (taken) taken.forEach(t => events.push({ id: t.id, datum: new Date(t.due_date), label: t.title, type: 'taak', klasse: 'event-taak', afgevinkt: t.status === 'gedaan', company_id: t.company_id }))
-  if (act) act.forEach(a => { if (a.occurred_at) events.push({ id: a.id, datum: new Date(a.occurred_at), label: a.subject || a.type, type: a.type, klasse: 'event-' + (a.type||'notitie'), body: a.body, company_id: a.company_id }) })
+  if (taken) taken.forEach(t => events.push({ id: t.id, datum: new Date(t.due_date), label: t.title, type: 'taak', klasse: 'event-taak', afgevinkt: t.status === 'gedaan', company_id: t.company_id, owner_id: t.assigned_to }))
+  if (act) act.forEach(a => { if (a.occurred_at) events.push({ id: a.id, datum: new Date(a.occurred_at), label: a.subject || a.type, type: a.type, klasse: 'event-' + (a.type||'notitie'), body: a.body, company_id: a.company_id, owner_id: a.logged_by }) })
   // Sorteer events op datum/tijd
   events.sort((a, b) => a.datum - b.datum)
 
@@ -326,6 +338,17 @@ async function laadEvents() {
       events.forEach(e => { if (e.company_id && map[e.company_id]) e.company_name = map[e.company_id] })
     }
   }
+
+  // Haal namen van eigenaren op (los van de join — die geeft 400-fouten)
+  const ownerIds = [...new Set(events.filter(e => e.owner_id).map(e => e.owner_id))]
+  if (ownerIds.length) {
+    const { data: profs } = await supabase.from('profiles').select('id,full_name').in('id', ownerIds)
+    if (profs) {
+      const pmap = {}
+      profs.forEach(p => pmap[p.id] = p.full_name)
+      events.forEach(e => { if (e.owner_id) { e.owner_name = pmap[e.owner_id] || null; e.mine = e.owner_id === MY_UID } })
+    }
+  }
 }
 
 function evOp(d) {
@@ -336,6 +359,7 @@ function evOp(d) {
 }
 
 function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+function firstName(n) { return (n||'').split(' ')[0] }
 
 function renderMaand() {
   const jaar=cursor.getFullYear(), maand=cursor.getMonth()
@@ -350,7 +374,7 @@ function renderMaand() {
     const d=new Date(jaar,maand,dag), ev=evOp(d), isVd=d.toDateString()===vd.toDateString()
     let evH=ev.slice(0,3).map((e,i)=>{
       const t = e.type !== 'taak' ? '<b style="margin-right:3px">' + e.datum.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}) + '</b>' : ''
-      return '<div class="agenda-event '+e.klasse+'" data-idx="'+events.indexOf(e)+'" title="'+esc(e.label)+'">'+(e.afgevinkt?'&#x2713; ':'')+t+esc(e.label)+'</div>'
+      return '<div class="agenda-event '+e.klasse+'" data-idx="'+events.indexOf(e)+'" title="'+esc(e.label)+(e.owner_name?' — '+esc(e.owner_name):'')+'">'+(e.afgevinkt?'&#x2713; ':'')+t+esc(e.label)+(e.owner_name&&!e.mine?' <span style="opacity:.55">· '+esc(firstName(e.owner_name))+'</span>':'')+'</div>'
     }).join('')
     if(ev.length>3) evH+='<div class="meer-events">+'+(ev.length-3)+' meer</div>'
     h+='<div class="'+(isVd?'maand-dag vandaag':'maand-dag')+'"><span class="dag-nr">'+dag+'</span>'+evH+'</div>'
@@ -372,7 +396,7 @@ function renderWeek() {
     wk.forEach(w=>{
       const ev=evOp(w).filter(e=>e.datum.getHours()===uur)
       h+='<div class="week-cel'+(w.toDateString()===vd.toDateString()?' vandaag':'')+'">'
-        +ev.map(e=>'<div class="agenda-event '+e.klasse+'" style="position:absolute;left:2px;right:2px;top:2px;font-size:10px">'+esc(e.label)+'</div>').join('')
+        +ev.map(e=>'<div class="agenda-event '+e.klasse+'" data-idx="'+events.indexOf(e)+'" style="position:absolute;left:2px;right:2px;top:2px;font-size:10px">'+esc(e.label)+(e.owner_name&&!e.mine?' · '+esc(firstName(e.owner_name)):'')+'</div>').join('')
         +'</div>'
     })
   }
