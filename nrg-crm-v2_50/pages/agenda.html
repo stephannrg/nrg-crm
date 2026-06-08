@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Agenda - NRG CRM</title>
+  <link rel="stylesheet" href="/css/main.css"/>
+  <style>
+    .agenda-toolbar{display:flex;align-items:center;gap:10px;padding:12px 22px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;flex-wrap:wrap}
+    .view-btns{display:flex;border:1px solid var(--border)}
+    .view-btn{padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;background:white;border:none;border-right:1px solid var(--border);color:var(--muted)}
+    .view-btn:last-child{border-right:none}
+    .view-btn.active{background:var(--teal);color:white}
+    .nav-btns{display:flex;gap:4px}
+    .nav-btn{padding:6px 12px;background:white;border:1px solid var(--border);cursor:pointer;font-size:13px;font-weight:600;color:var(--text)}
+    .period-label{font-size:13px;font-weight:700;color:var(--text);min-width:160px}
+    .agenda-content{flex:1;overflow:auto;padding:20px 22px}
+    .maand-grid{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--border);border-left:1px solid var(--border)}
+    .maand-dag-header{padding:8px;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);text-align:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg)}
+    .maand-dag{min-height:100px;padding:6px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:white}
+    .maand-dag.andere-maand{background:#fafafa}
+    .maand-dag.vandaag{background:#f0fdf8}
+    .dag-nr{font-size:12px;font-weight:600;color:var(--muted);display:inline-block;width:22px;height:22px;text-align:center;line-height:22px;margin-bottom:4px}
+    .maand-dag.vandaag .dag-nr{background:var(--teal);color:white;border-radius:50%;font-size:11px}
+    .agenda-event{font-size:11px;padding:2px 5px;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:2px solid}
+    .event-taak{background:#f0fdf8;border-color:#00af70;color:#065f46}
+    .event-bel{background:#fef3e2;border-color:#f59e0b;color:#92400e}
+    .event-mail{background:#eff6ff;border-color:#3b82f6;color:#1e40af}
+    .event-notitie{background:#faf5ff;border-color:#8b5cf6;color:#5b21b6}
+    .event-meeting{background:#fff1f2;border-color:#ef4444;color:#991b1b}
+    .meer-events{font-size:10px;color:var(--muted);padding:2px 5px}
+    .agenda-event{cursor:pointer}
+    .agenda-event:hover{opacity:.75}
+    .dag-lijst{display:flex;flex-direction:column;gap:8px;padding:12px;max-height:calc(100vh - 230px);overflow-y:auto}
+    .dag-item{display:flex;gap:14px;padding:12px 14px;background:white;border:1px solid var(--border);border-left:4px solid var(--teal);border-radius:6px;cursor:pointer;white-space:normal;margin-bottom:0;overflow:visible}
+    .dag-item:hover{opacity:1;background:#fafafa}
+    .dag-tijd{font-weight:700;font-size:13px;min-width:58px;color:var(--text)}
+    .dag-info{flex:1;min-width:0}
+    .dag-titel{font-weight:600;font-size:14px;margin-bottom:3px;white-space:normal}
+    .dag-sub{font-size:12px;color:var(--muted);margin-top:1px}
+    .dag-leeg{padding:48px 20px;text-align:center;color:var(--muted);font-size:14px}
+    .dag-type-badge{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:10px;margin-left:6px;vertical-align:middle}
+    .detail-panel{position:fixed;top:0;right:-380px;width:360px;height:100vh;background:white;border-left:1px solid var(--border);box-shadow:-4px 0 16px rgba(0,0,0,.08);z-index:200;transition:right .25s;display:flex;flex-direction:column}
+    .detail-panel.open{right:0}
+    .detail-header{padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+    .detail-title{font-size:15px;font-weight:700;color:var(--dark)}
+    .detail-close{cursor:pointer;color:var(--muted);font-size:20px;line-height:1;background:none;border:none;padding:0}
+    .detail-body{padding:18px;flex:1;overflow-y:auto}
+    .detail-row{margin-bottom:16px}
+    .detail-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px}
+    .detail-value{font-size:13px;color:var(--text);line-height:1.5}
+    .detail-badge{display:inline-flex;align-items:center;padding:3px 10px;font-size:11px;font-weight:600;border-left:3px solid}
+    .detail-overlay{position:fixed;inset:0;z-index:199;background:rgba(0,0,0,.15);display:none}
+    .nieuw-modal{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3)}
+    .nieuw-modal.hidden{display:none}
+    .bewerk-modal{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3)}
+    .bewerk-modal.hidden{display:none}
+    .bewerk-box{background:white;width:440px;max-width:95vw;border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,.12)}
+    .bewerk-header{padding:14px 18px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700;color:var(--dark);display:flex;justify-content:space-between;align-items:center}
+    .bewerk-body{padding:18px;display:flex;flex-direction:column;gap:14px}
+    .bewerk-footer{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+    .bewerk-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px}
+    .bewerk-input{width:100%;padding:8px 10px;border:1px solid var(--border);font-size:13px;font-family:inherit;box-sizing:border-box}
+    .bewerk-input:focus{outline:none;border-color:var(--teal-m)}
+    textarea.bewerk-input{resize:vertical;min-height:80px}
+    .detail-overlay.open{display:block}
+    .week-wrap{overflow-x:auto}
+    .week-grid{display:grid;grid-template-columns:56px repeat(7,1fr);min-width:600px;border-top:1px solid var(--border);border-left:1px solid var(--border)}
+    .week-col-header{padding:8px;font-size:11px;font-weight:700;text-align:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg)}
+    .week-col-header.vandaag{background:#f0fdf8;color:var(--teal)}
+    .week-uur-label{font-size:10px;color:var(--muted);text-align:right;padding:2px 6px 0 0;border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:44px}
+    .week-cel{border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:44px;position:relative}
+    .week-cel.vandaag{background:#f0fdf8}
+    .jaar-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+    .mini-maand{border:1px solid var(--border);background:white}
+    .mini-header{padding:8px 10px;font-size:12px;font-weight:700;color:var(--dark);border-bottom:1px solid var(--border);background:var(--bg)}
+    .mini-grid{display:grid;grid-template-columns:repeat(7,1fr);padding:4px;gap:1px}
+    .mini-dh{font-size:9px;font-weight:600;text-align:center;color:var(--muted);padding:3px 0}
+    .mini-d{font-size:10px;text-align:center;padding:2px;color:var(--text)}
+    .mini-d.andere-maand{color:#ccc}
+    .mini-d.vandaag{background:var(--teal);color:white;border-radius:50%}
+    .mini-d.heeft-items{font-weight:700;color:var(--teal)}
+  </style>
+</head>
+<body>
+<script type="module">
+import { supabase, requireAuth } from '../js/supabase.js'
+import { initShell } from '../js/shell.js'
+
+const session = await requireAuth()
+if (!session) throw new Error('Not authenticated')
+
+// UID direct vastleggen — wordt gebruikt in alle inserts en queries
+const MY_UID = session.user.id
+
+const shellCtx = await initShell('agenda')
+const isAdmin = shellCtx?.profile?.role === 'admin'
+
+// Bouw de pagina op in #main-content na initShell
+const main = document.getElementById('main-content')
+main.innerHTML = `
+  <div class="topbar"><span style="font-weight:700;font-size:15px">Agenda</span></div>
+  <div class="agenda-toolbar">
+    <div class="nav-btns">
+      <button class="nav-btn" id="btn-prev">&#8249;</button>
+      <button class="nav-btn" id="btn-today">Vandaag</button>
+      <button class="nav-btn" id="btn-next">&#8250;</button>
+    </div>
+    <div class="period-label" id="period-label">Laden...</div>
+    <div style="flex:1"></div>
+    <button class="btn btn-primary" id="btn-nieuw" style="font-size:12px;padding:7px 14px">+ Nieuw</button>
+    <div class="view-btns">
+      <button class="view-btn" id="view-dag">Dag</button>
+      <button class="view-btn" id="view-week">Week</button>
+      <button class="view-btn active" id="view-maand">Maand</button>
+      <button class="view-btn" id="view-jaar">Jaar</button>
+    </div>
+  </div>
+  <div class="agenda-content" id="agenda-content"><div style="text-align:center;padding:60px;color:var(--muted)">Laden...</div></div>
+`
+
+// Detail paneel
+document.body.insertAdjacentHTML('beforeend', `
+  <div class="detail-overlay" id="detail-overlay"></div>
+  <div class="detail-panel" id="detail-panel">
+    <div class="detail-header">
+      <span class="detail-title" id="detail-title"></span>
+      <button class="detail-close" id="detail-close">&#x2715;</button>
+    </div>
+    <div class="detail-body" id="detail-body"></div>
+  </div>
+`)
+
+document.body.insertAdjacentHTML('beforeend', `
+  <div class="nieuw-modal hidden" id="nieuw-modal">
+    <div class="bewerk-box">
+      <div class="bewerk-header">
+        <span>Nieuwe actie / afspraak</span>
+        <button class="detail-close" id="nieuw-sluit">&#x2715;</button>
+      </div>
+      <div class="bewerk-body">
+        <div>
+          <div class="bewerk-label">Type</div>
+          <select class="bewerk-input" id="nieuw-type">
+            <option value="taak">Taak</option>
+            <option value="bel">Belnotitie</option>
+            <option value="meeting">Meeting</option>
+            <option value="notitie">Notitie</option>
+            <option value="mail">E-mail</option>
+          </select>
+        </div>
+        <div>
+          <div class="bewerk-label">Omschrijving</div>
+          <input class="bewerk-input" id="nieuw-naam" type="text" placeholder="Omschrijving..."/>
+        </div>
+        <div>
+          <div class="bewerk-label">Datum</div>
+          <input class="bewerk-input" id="nieuw-datum" type="date"/>
+        </div>
+        <div style="display:flex;gap:10px" id="nieuw-tijd-wrap">
+          <div style="flex:1">
+            <div class="bewerk-label">Begintijd</div>
+            <input class="bewerk-input" id="nieuw-tijd" type="time" value="09:00"/>
+          </div>
+          <div style="flex:1">
+            <div class="bewerk-label">Eindtijd</div>
+            <input class="bewerk-input" id="nieuw-tijd-eind" type="time" value="10:00"/>
+          </div>
+        </div>
+        <div>
+          <div class="bewerk-label">Bedrijf (optioneel)</div>
+          <select class="bewerk-input" id="nieuw-bedrijf">
+            <option value="">— Geen bedrijf —</option>
+          </select>
+        </div>
+        <div>
+          <div class="bewerk-label">Notities / inhoud</div>
+          <textarea class="bewerk-input" id="nieuw-body" placeholder="Optionele inhoud..."></textarea>
+        </div>
+      </div>
+      <div class="bewerk-footer">
+        <button class="nav-btn" id="nieuw-annuleer">Annuleren</button>
+        <button class="btn btn-primary" id="nieuw-opslaan">Opslaan</button>
+      </div>
+    </div>
+  </div>
+`)
+
+document.body.insertAdjacentHTML('beforeend', `
+  <div class="bewerk-modal hidden" id="bewerk-modal">
+    <div class="bewerk-box">
+      <div class="bewerk-header">
+        <span id="bewerk-modal-title">Bewerken</span>
+        <button class="detail-close" id="bewerk-sluit">&#x2715;</button>
+      </div>
+      <div class="bewerk-body">
+        <div>
+          <div class="bewerk-label">Omschrijving</div>
+          <input class="bewerk-input" id="bewerk-naam" type="text"/>
+        </div>
+        <div id="bewerk-body-extra"></div>
+        <div>
+          <div class="bewerk-label">Notities / inhoud</div>
+          <textarea class="bewerk-input" id="bewerk-body-tekst"></textarea>
+        </div>
+      </div>
+      <div class="bewerk-footer">
+        <button class="nav-btn" id="bewerk-annuleer">Annuleren</button>
+        <button class="btn btn-primary" id="bewerk-opslaan">Opslaan</button>
+      </div>
+    </div>
+  </div>
+`)
+
+const panel = document.getElementById('detail-panel')
+const overlay = document.getElementById('detail-overlay')
+
+function sluitPanel() {
+  panel.classList.remove('open')
+  overlay.classList.remove('open')
+}
+
+document.getElementById('detail-close').addEventListener('click', sluitPanel)
+overlay.addEventListener('click', sluitPanel)
+
+const TYPE_LABELS = { taak: 'Taak', bel: 'Belnotitie', mail: 'E-mail', meeting: 'Meeting', notitie: 'Notitie' }
+const TYPE_KLEUREN = { taak: '#00af70', bel: '#f59e0b', mail: '#3b82f6', meeting: '#ef4444', notitie: '#8b5cf6' }
+
+let huidigItem = null
+
+function toonDetail(item) {
+  huidigItem = item
+  const label = TYPE_LABELS[item.type] || item.type
+  const kleur = TYPE_KLEUREN[item.type] || '#6b7280'
+  const datum = item.datum.toLocaleDateString('nl-NL', {weekday:'long', year:'numeric', month:'long', day:'numeric'})
+  const tijd = item.type !== 'taak' ? item.datum.toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'}) : null
+
+  document.getElementById('detail-title').textContent = item.label || label
+
+  const bewerkBtn = '<button class="nav-btn" id="detail-bewerk" style="font-size:12px;padding:5px 12px">&#x270F; Bewerken</button>'
+  
+  document.getElementById('detail-body').innerHTML =
+    '<div class="detail-row">' +
+      '<div class="detail-label">Type</div>' +
+      '<div><span class="detail-badge" style="border-color:' + kleur + ';background:' + kleur + '18;color:' + kleur + '">' + label + '</span></div>' +
+    '</div>' +
+    '<div class="detail-row">' +
+      '<div class="detail-label">Datum</div>' +
+      '<div class="detail-value">' + datum + (tijd ? ' om ' + tijd : '') + '</div>' +
+    '</div>' +
+    (item.label ? '<div class="detail-row"><div class="detail-label">Omschrijving</div><div class="detail-value">' + esc(item.label) + '</div></div>' : '') +
+    (item.body ? '<div class="detail-row"><div class="detail-label">Inhoud</div><div class="detail-value" style="white-space:pre-wrap;max-height:200px;overflow-y:auto">' + esc(item.body) + '</div></div>' : '') +
+    (item.company_name ? '<div class="detail-row"><div class="detail-label">Bedrijf</div><div class="detail-value"><a href="/pages/klant.html?id=' + item.company_id + '" style="color:var(--teal-m);font-weight:600;text-decoration:none">' + esc(item.company_name) + ' →</a></div></div>' : '') +
+    (item.owner_name ? '<div class="detail-row"><div class="detail-label">Van</div><div class="detail-value">' + esc(item.owner_name) + (item.mine ? ' (jij)' : '') + '</div></div>' : '') +
+    (item.afgevinkt !== undefined ? '<div class="detail-row"><div class="detail-label">Status</div><div class="detail-value">' + (item.afgevinkt ? '✓ Afgerond' : '○ Open') + '</div></div>' : '') +
+    (item.mine !== false ?
+    '<div style="display:flex;gap:8px;padding-top:16px;border-top:1px solid var(--border);margin-top:8px">' +
+      bewerkBtn +
+      '<button class="nav-btn" id="detail-delete" style="font-size:12px;padding:5px 12px;color:#ef4444;border-color:#ef4444">&#x1F5D1; Verwijderen</button>' +
+    '</div>'
+    :
+    '<div style="padding-top:16px;border-top:1px solid var(--border);margin-top:8px;font-size:12px;color:var(--muted)">Alleen ' + esc(item.owner_name || 'de eigenaar') + ' kan dit item bewerken of verwijderen.</div>')
+
+  if (item.mine !== false) {
+  document.getElementById('detail-delete').addEventListener('click', async () => {
+    if (!confirm('Weet je zeker dat je dit wilt verwijderen?')) return
+    const tabel = item.type === 'taak' ? 'tasks' : 'activities'
+    const { error } = await supabase.from(tabel).delete().eq('id', item.id)
+    if (error) { alert('Fout: ' + error.message); return }
+    events.splice(events.indexOf(item), 1)
+    sluitPanel()
+    render()
+  })
+
+  document.getElementById('detail-bewerk').addEventListener('click', () => {
+    const modal = document.getElementById('bewerk-modal')
+    document.getElementById('bewerk-modal-title').textContent = 'Bewerken: ' + (TYPE_LABELS[item.type] || item.type)
+    document.getElementById('bewerk-naam').value = item.label || ''
+    document.getElementById('bewerk-body-tekst').value = item.body || ''
+
+    // Datum veld alleen voor taken
+    const extra = document.getElementById('bewerk-body-extra')
+    if (item.type === 'taak') {
+      extra.innerHTML = '<div><div class="bewerk-label">Datum</div><input class="bewerk-input" id="bewerk-datum" type="date" value="' + item.datum.toISOString().slice(0,10) + '"/></div>'
+    } else {
+      extra.innerHTML = ''
+    }
+
+    modal.classList.remove('hidden')
+
+    const sluit = () => modal.classList.add('hidden')
+    document.getElementById('bewerk-sluit').onclick = sluit
+    document.getElementById('bewerk-annuleer').onclick = sluit
+
+    document.getElementById('bewerk-opslaan').onclick = async () => {
+      const nieuweNaam = document.getElementById('bewerk-naam').value.trim()
+      const nieuwBody = document.getElementById('bewerk-body-tekst').value.trim()
+      if (!nieuweNaam) return
+
+      if (item.type === 'taak') {
+        const nieuweDatum = document.getElementById('bewerk-datum').value
+        const { error } = await supabase.from('tasks').update({ title: nieuweNaam, due_date: nieuweDatum }).eq('id', item.id)
+        if (error) { alert('Fout: ' + error.message); return }
+        item.label = nieuweNaam
+        item.datum = new Date(nieuweDatum)
+      } else {
+        const { error } = await supabase.from('activities').update({ subject: nieuweNaam, body: nieuwBody }).eq('id', item.id)
+        if (error) { alert('Fout: ' + error.message); return }
+        item.label = nieuweNaam
+        item.body = nieuwBody
+      }
+      sluit()
+      sluitPanel()
+      render()
+    }
+  })
+  }
+
+  panel.classList.add('open')
+  overlay.classList.add('open')
+}
+
+const DAGEN = ['Ma','Di','Wo','Do','Vr','Za','Zo']
+const MAANDEN = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December']
+let view = 'maand', cursor = new Date(), events = []
+
+async function laadEvents() {
+  // Admin ziet alles, gewone gebruiker alleen eigen items
+  let takenQ = supabase.from('tasks').select('id,title,due_date,status,company_id,assigned_to').not('due_date','is',null)
+  if (!isAdmin) takenQ = takenQ.eq('assigned_to', MY_UID)
+  const { data: taken } = await takenQ
+  let actQ = supabase.from('activities').select('id,type,subject,body,occurred_at,company_id,logged_by').order('occurred_at',{ascending:false}).limit(1000)
+  if (!isAdmin) actQ = actQ.eq('logged_by', MY_UID)
+  const { data: act } = await actQ
+  events = []
+  if (taken) taken.forEach(t => events.push({ id: t.id, datum: new Date(t.due_date), label: t.title, type: 'taak', klasse: 'event-taak', afgevinkt: t.status === 'gedaan', company_id: t.company_id, owner_id: t.assigned_to }))
+  if (act) act.forEach(a => { if (a.occurred_at) events.push({ id: a.id, datum: new Date(a.occurred_at), label: a.subject || a.type, type: a.type, klasse: 'event-' + (a.type||'notitie'), body: a.body, company_id: a.company_id, owner_id: a.logged_by }) })
+  // Sorteer events op datum/tijd
+  events.sort((a, b) => a.datum - b.datum)
+
+  // Haal bedrijfsnamen op voor events met company_id
+  const companyIds = [...new Set(events.filter(e => e.company_id).map(e => e.company_id))]
+  if (companyIds.length) {
+    const { data: companies } = await supabase.from('companies').select('id,name').in('id', companyIds)
+    if (companies) {
+      const map = {}
+      companies.forEach(c => map[c.id] = c.name)
+      events.forEach(e => { if (e.company_id && map[e.company_id]) e.company_name = map[e.company_id] })
+    }
+  }
+
+  // Haal namen van eigenaren op (los van de join — die geeft 400-fouten)
+  const ownerIds = [...new Set(events.filter(e => e.owner_id).map(e => e.owner_id))]
+  if (ownerIds.length) {
+    const { data: profs } = await supabase.from('profiles').select('id,full_name').in('id', ownerIds)
+    if (profs) {
+      const pmap = {}
+      profs.forEach(p => pmap[p.id] = p.full_name)
+      events.forEach(e => { if (e.owner_id) { e.owner_name = pmap[e.owner_id] || null; e.mine = e.owner_id === MY_UID } })
+    }
+  }
+}
+
+function evOp(d) {
+  return events.filter(e => {
+    const ed = e.datum
+    return ed.getFullYear()===d.getFullYear() && ed.getMonth()===d.getMonth() && ed.getDate()===d.getDate()
+  })
+}
+
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+function firstName(n) { return (n||'').split(' ')[0] }
+
+function renderMaand() {
+  const jaar=cursor.getFullYear(), maand=cursor.getMonth()
+  document.getElementById('period-label').textContent = MAANDEN[maand] + ' ' + jaar
+  let start = new Date(jaar,maand,1).getDay()-1; if(start<0) start=6
+  const days = new Date(jaar,maand+1,0).getDate()
+  const vd = new Date(), vorigeDagen = new Date(jaar,maand,0).getDate()
+  let h = '<div class="maand-grid">'
+  DAGEN.forEach(d => h += '<div class="maand-dag-header">'+d+'</div>')
+  for(let i=start-1;i>=0;i--) h += '<div class="maand-dag andere-maand"><span class="dag-nr">'+(vorigeDagen-i)+'</span></div>'
+  for(let dag=1;dag<=days;dag++){
+    const d=new Date(jaar,maand,dag), ev=evOp(d), isVd=d.toDateString()===vd.toDateString()
+    let evH=ev.slice(0,3).map((e,i)=>{
+      const t = e.type !== 'taak' ? '<b style="margin-right:3px">' + e.datum.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}) + '</b>' : ''
+      return '<div class="agenda-event '+e.klasse+'" data-idx="'+events.indexOf(e)+'" title="'+esc(e.label)+(e.owner_name?' — '+esc(e.owner_name):'')+'">'+(e.afgevinkt?'&#x2713; ':'')+t+esc(e.label)+(e.owner_name&&!e.mine?' <span style="opacity:.55">· '+esc(firstName(e.owner_name))+'</span>':'')+'</div>'
+    }).join('')
+    if(ev.length>3) evH+='<div class="meer-events">+'+(ev.length-3)+' meer</div>'
+    h+='<div class="'+(isVd?'maand-dag vandaag':'maand-dag')+'" data-date="'+isoDate(d)+'" style="cursor:pointer"><span class="dag-nr">'+dag+'</span>'+evH+'</div>'
+  }
+  const tot=Math.ceil((start+days)/7)*7
+  for(let i=1;i<=tot-start-days;i++) h+='<div class="maand-dag andere-maand"><span class="dag-nr">'+i+'</span></div>'
+  h+='</div>'
+  document.getElementById('agenda-content').innerHTML=h
+}
+
+function renderWeek() {
+  const d=new Date(cursor), dag=d.getDay()===0?6:d.getDay()-1; d.setDate(d.getDate()-dag)
+  const vd=new Date(), wk=Array.from({length:7},(_,i)=>{const w=new Date(d);w.setDate(d.getDate()+i);return w})
+  document.getElementById('period-label').textContent=wk[0].getDate()+' '+MAANDEN[wk[0].getMonth()].slice(0,3)+' – '+wk[6].getDate()+' '+MAANDEN[wk[6].getMonth()].slice(0,3)+' '+wk[6].getFullYear()
+  let h='<div class="week-wrap"><div class="week-grid"><div class="week-col-header"></div>'
+  wk.forEach(w => h+='<div class="week-col-header'+(w.toDateString()===vd.toDateString()?' vandaag':'')+'" data-date="'+isoDate(w)+'" style="cursor:pointer">'+DAGEN[w.getDay()===0?6:w.getDay()-1]+' '+w.getDate()+'</div>')
+  for(let uur=7;uur<=20;uur++){
+    h+='<div class="week-uur-label">'+uur+':00</div>'
+    wk.forEach(w=>{
+      const ev=evOp(w).filter(e=>e.datum.getHours()===uur)
+      h+='<div class="week-cel'+(w.toDateString()===vd.toDateString()?' vandaag':'')+'">'
+        +ev.map(e=>'<div class="agenda-event '+e.klasse+'" data-idx="'+events.indexOf(e)+'" style="position:absolute;left:2px;right:2px;top:2px;font-size:10px">'+esc(e.label)+(e.owner_name&&!e.mine?' · '+esc(firstName(e.owner_name)):'')+'</div>').join('')
+        +'</div>'
+    })
+  }
+  h+='</div></div>'
+  document.getElementById('agenda-content').innerHTML=h
+}
+
+function renderJaar() {
+  const jaar=cursor.getFullYear(); document.getElementById('period-label').textContent=jaar.toString()
+  const vd=new Date(); let h='<div class="jaar-grid">'
+  for(let m=0;m<12;m++){
+    let s=new Date(jaar,m,1).getDay()-1; if(s<0) s=6
+    const days=new Date(jaar,m+1,0).getDate()
+    h+='<div class="mini-maand"><div class="mini-header">'+MAANDEN[m]+'</div><div class="mini-grid">'
+    DAGEN.forEach(d=>h+='<div class="mini-dh">'+d[0]+'</div>')
+    for(let i=0;i<s;i++) h+='<div class="mini-d andere-maand"></div>'
+    for(let dag=1;dag<=days;dag++){
+      const d=new Date(jaar,m,dag), isVd=d.toDateString()===vd.toDateString(), heeft=evOp(d).length>0
+      h+='<div class="mini-d'+(isVd?' vandaag':heeft?' heeft-items':'')+'" data-date="'+isoDate(d)+'" style="cursor:pointer">'+ dag+'</div>'
+    }
+    h+='</div></div>'
+  }
+  h+='</div>'
+  document.getElementById('agenda-content').innerHTML=h
+}
+
+function isoDate(d){ return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate() }
+function setActiveBtn(id){ document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active')); const b=document.getElementById(id); if(b) b.classList.add('active') }
+
+function renderDag(){
+  const d=new Date(cursor), vd=new Date(), isVd=d.toDateString()===vd.toDateString()
+  document.getElementById('period-label').textContent = DAGEN[d.getDay()===0?6:d.getDay()-1]+' '+d.getDate()+' '+MAANDEN[d.getMonth()]+' '+d.getFullYear()+(isVd?' · Vandaag':'')
+  const items=evOp(d).slice().sort((a,b)=>{const at=a.type==='taak'?1:0,bt=b.type==='taak'?1:0; return at!==bt?at-bt:a.datum-b.datum})
+  let h='<div class="dag-lijst">'
+  if(!items.length){ h+='<div class="dag-leeg">Geen agenda-items op deze dag.</div>' }
+  else { h+=items.map(e=>{
+    const kleur=TYPE_KLEUREN[e.type]||'#00af70'
+    const tijd=e.type==='taak'?'Taak':e.datum.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})
+    return '<div class="agenda-event dag-item" data-idx="'+events.indexOf(e)+'" style="border-left-color:'+kleur+'">'
+      +'<div class="dag-tijd">'+tijd+'</div>'
+      +'<div class="dag-info">'
+        +'<div class="dag-titel">'+(e.afgevinkt?'&#x2713; ':'')+esc(e.label)+'<span class="dag-type-badge" style="background:'+kleur+'22;color:'+kleur+'">'+esc(TYPE_LABELS[e.type]||e.type)+'</span></div>'
+        +(e.company_name?'<div class="dag-sub">🏢 '+esc(e.company_name)+'</div>':'')
+        +(e.owner_name?'<div class="dag-sub">👤 '+esc(e.owner_name)+(e.mine?' (jij)':'')+'</div>':'')
+        +(e.body?'<div class="dag-sub">'+esc(e.body.slice(0,140))+(e.body.length>140?'…':'')+'</div>':'')
+      +'</div>'
+    +'</div>'
+  }).join('') }
+  h+='</div>'
+  document.getElementById('agenda-content').innerHTML=h
+}
+
+function render(){ if(view==='dag') renderDag(); else if(view==='maand') renderMaand(); else if(view==='week') renderWeek(); else renderJaar() }
+
+// Klik op agenda event
+document.getElementById('agenda-content').addEventListener('click', e => {
+  const el = e.target.closest('.agenda-event')
+  if (el) {
+    const idx = parseInt(el.dataset.idx)
+    if (!isNaN(idx) && events[idx]) toonDetail(events[idx])
+    return
+  }
+  const dayEl = e.target.closest('[data-date]')
+  if (dayEl && view !== 'dag') {
+    const [y,m,da] = dayEl.dataset.date.split('-').map(Number)
+    cursor = new Date(y, m-1, da)
+    view = 'dag'; setActiveBtn('view-dag'); render()
+  }
+})
+
+document.getElementById('btn-prev').addEventListener('click',()=>{ if(view==='dag') cursor.setDate(cursor.getDate()-1); else if(view==='maand') cursor.setMonth(cursor.getMonth()-1); else if(view==='week') cursor.setDate(cursor.getDate()-7); else cursor.setFullYear(cursor.getFullYear()-1); render() })
+document.getElementById('btn-next').addEventListener('click',()=>{ if(view==='dag') cursor.setDate(cursor.getDate()+1); else if(view==='maand') cursor.setMonth(cursor.getMonth()+1); else if(view==='week') cursor.setDate(cursor.getDate()+7); else cursor.setFullYear(cursor.getFullYear()+1); render() })
+document.getElementById('btn-today').addEventListener('click',()=>{ cursor=new Date(); render() })
+document.getElementById('view-dag').addEventListener('click',()=>{ view='dag'; setActiveBtn('view-dag'); render() })
+document.getElementById('view-maand').addEventListener('click',()=>{ view='maand'; setActiveBtn('view-maand'); render() })
+document.getElementById('view-week').addEventListener('click',()=>{ view='week'; setActiveBtn('view-week'); render() })
+document.getElementById('view-jaar').addEventListener('click',()=>{ view='jaar'; setActiveBtn('view-jaar'); render() })
+
+// Nieuw modal
+let alleBedrijven = []
+supabase.from('companies').select('id,name').order('name').then(({ data }) => {
+  if (data) {
+    alleBedrijven = data
+    const sel = document.getElementById('nieuw-bedrijf')
+    if (sel) data.forEach(c => {
+      const opt = document.createElement('option')
+      opt.value = c.id
+      opt.textContent = c.name
+      sel.appendChild(opt)
+    })
+  }
+})
+
+document.getElementById('nieuw-type').addEventListener('change', () => {
+  const type = document.getElementById('nieuw-type').value
+  const tijdWrap = document.getElementById('nieuw-tijd-wrap')
+  tijdWrap.style.display = type === 'taak' ? 'none' : 'block'
+})
+
+document.getElementById('btn-nieuw').addEventListener('click', () => {
+  const modal = document.getElementById('nieuw-modal')
+  document.getElementById('nieuw-naam').value = ''
+  document.getElementById('nieuw-body').value = ''
+  document.getElementById('nieuw-datum').value = new Date().toISOString().slice(0,10)
+  modal.classList.remove('hidden')
+})
+
+const sluitNieuw = () => document.getElementById('nieuw-modal').classList.add('hidden')
+document.getElementById('nieuw-sluit').addEventListener('click', sluitNieuw)
+document.getElementById('nieuw-annuleer').addEventListener('click', sluitNieuw)
+
+document.getElementById('nieuw-opslaan').addEventListener('click', async () => {
+  const type = document.getElementById('nieuw-type').value
+  const naam = document.getElementById('nieuw-naam').value.trim()
+  const datum = document.getElementById('nieuw-datum').value
+  const body = document.getElementById('nieuw-body').value.trim()
+  const company_id = document.getElementById('nieuw-bedrijf').value || null
+
+  if (!naam) { alert('Vul een omschrijving in.'); return }
+  if (!datum) { alert('Vul een datum in.'); return }
+
+  let error
+  if (type === 'taak') {
+    const result = await supabase.from('tasks').insert({
+      title: naam,
+      due_date: datum,
+      company_id,
+      assigned_to: MY_UID,
+      status: 'open'
+    })
+    error = result.error
+  } else {
+    const tijd = document.getElementById('nieuw-tijd').value || '09:00'
+    const tijdEind = document.getElementById('nieuw-tijd-eind').value || null
+    const occurred_at = new Date(datum + 'T' + tijd + ':00').toISOString()
+    const ended_at = tijdEind ? new Date(datum + 'T' + tijdEind + ':00').toISOString() : null
+    const insertData = {
+      type,
+      subject: naam,
+      body: body || null,
+      occurred_at,
+      company_id,
+      logged_by: MY_UID
+    }
+    if (ended_at) insertData.ended_at = ended_at
+    const result = await supabase.from('activities').insert(insertData)
+    error = result.error
+  }
+
+  if (error) { alert('Fout: ' + error.message); return }
+  sluitNieuw()
+  await laadEvents()
+  render()
+})
+
+await laadEvents()
+render()
+</script>
+</body>
+</html>
